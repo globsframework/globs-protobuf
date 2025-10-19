@@ -6,8 +6,8 @@
     <url>https://globsframework.org</url>
     <groupId>org.globsframework</groupId>
     <packaging>jar</packaging>
-    <artifactId>globs-grpc</artifactId>
-    <name>globs Google RPC</name>
+    <artifactId>globs-protobuf</artifactId>
+    <name>globs serialization in protobuf</name>
     <version>4.1.1</version>
 
     <developers>
@@ -39,7 +39,9 @@
     </repositories>
 
     <scm>
-        <url>https://github.com/globsframework/globs-grpc</url>
+        <connection>scm:git:git@github.com:globsframework/globs-protobuf</connection>
+        <developerConnection>scm:git:git@github.com:globsframework/globs-protobuf</developerConnection>
+        <url>https://github.com/globsframework/globs-protobuf</url>
     </scm>
 
     <profiles>

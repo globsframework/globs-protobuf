@@ -5,6 +5,8 @@
 // license that can be found in the LICENSE file or at
 // https://developers.google.com/open-source/licenses/bsd
 
+// updated to match Globs framework need
+
 package org.globsframework.grpc.writer;
 
 import org.globsframework.core.model.Glob;
@@ -28,6 +30,7 @@ import static org.globsframework.grpc.writer.WireFormat.*;
  * The {@link #getTotalBytesWritten()} will continue to reflect the total of the write and will not
  * be reset.
  */
+
 public abstract class BinaryWriter implements Writer {
     public static final int DEFAULT_CHUNK_SIZE = 4096;
 
