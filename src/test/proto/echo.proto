@@ -1,0 +1,48 @@
+syntax = "proto3";
+
+option java_multiple_files = true;
+option java_package = "org.globsframework.grpc.echo";
+option java_outer_classname = "EchoProto";
+
+package echo;
+
+// The request message containing the message to echo
+message EchoRequest {
+  int32 i32 = 2;
+  sint32 si32 = 3;
+  uint32 ui32 = 4;
+  fixed32 fi32= 5;
+  sfixed32 sf32 = 6;
+  repeated int32 i32values = 7;
+  repeated sint32 si32values = 8;
+  repeated uint32 ui32values = 9;
+  repeated fixed32 fi32values = 10;
+  repeated sfixed32 sfi32values = 11;
+
+  EchoRequest children = 12;
+  repeated EchoRequest child = 13;
+
+  int64 i64 = 14;
+  sint64 si64 = 15;
+  uint64  ui64 = 16;
+  fixed64 fi64 = 17;
+  sfixed64 sf64 = 18;
+
+  repeated int64 i64values = 19;
+  repeated sint64 si64values = 20;
+  repeated uint64 ui64values = 21;
+  repeated fixed64 fi64values = 22;
+  repeated sfixed64 sfi64values = 23;
+
+  bool bValue = 24;
+  repeated bool bValues = 25;
+
+  string message = 26;
+  repeated string messages = 27;
+
+  double d64 = 28;
+  repeated double d64Values = 29;
+  float f32 = 30;
+  repeated float f32Values = 31;
+
+}
