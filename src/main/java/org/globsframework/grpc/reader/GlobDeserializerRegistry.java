@@ -5,7 +5,7 @@ import org.globsframework.core.metamodel.fields.*;
 import org.globsframework.core.model.Glob;
 import org.globsframework.core.model.GlobInstantiator;
 import org.globsframework.grpc.ProtobufField;
-import org.globsframework.grpc.writer.ProtoBufSInt32SerializerImpl;
+import org.globsframework.grpc.reader.field.*;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -151,7 +151,7 @@ public class GlobDeserializerRegistry {
                         case DoubleField doubleField -> {
                             if (grpcType == 0 || grpcType == 11) {
                                 yield new ProtoBufGlobDoubleFieldDeserializerImpl(doubleField);
-                            }else if (grpcType == 14) {
+                            } else if (grpcType == 14) {
                                 yield new ProtoBufGlobFloatFieldDeserializerImpl(doubleField);
                             } else {
                                 throw new IllegalStateException("Unexpected value: " + grpcType);
@@ -160,7 +160,7 @@ public class GlobDeserializerRegistry {
                         case DoubleArrayField doubleArrayField -> {
                             if (grpcType == 0 || grpcType == 11) {
                                 yield new ProtoBufGlobDoubleArrayFieldDeserializerImpl(doubleArrayField);
-                            }else if (grpcType == 14) {
+                            } else if (grpcType == 14) {
                                 yield new ProtoBufGlobFloatArrayFieldDeserializerImpl(doubleArrayField);
                             } else {
                                 throw new IllegalStateException("Unexpected value: " + grpcType);

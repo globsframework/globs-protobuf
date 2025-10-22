@@ -42,7 +42,6 @@ public abstract class BinaryWriter implements Writer {
     int totalDoneBytes;
 
 
-
     /**
      * Creates a new {@link BinaryWriter} that will allocate heap buffers of {@link
      * #DEFAULT_CHUNK_SIZE} as necessary.
@@ -59,7 +58,7 @@ public abstract class BinaryWriter implements Writer {
         return newSafeHeapInstance(alloc, grpcBinWriter, chunkSize);
     }
 
-    static BinaryWriter newSafeHeapInstance(BufferAllocator alloc, GrpcBinWriter grpcBinWriter,int chunkSize) {
+    static BinaryWriter newSafeHeapInstance(BufferAllocator alloc, GrpcBinWriter grpcBinWriter, int chunkSize) {
         return new SafeHeapWriter(alloc, grpcBinWriter, chunkSize);
     }
 
@@ -90,20 +89,20 @@ public abstract class BinaryWriter implements Writer {
         finishCurrentBuffer();
         return buffers;
     }
-    
+
     public final void writeSFixed32(int fieldNumber, int value) throws IOException {
         writeFixed32(fieldNumber, value);
     }
-    
+
     public final void writeInt64(int fieldNumber, long value) throws IOException {
         writeUInt64(fieldNumber, value);
     }
-    
+
     public final void writeSFixed64(int fieldNumber, long value) throws IOException {
         writeFixed64(fieldNumber, value);
     }
 
-    
+
     public final void writeFloat(int fieldNumber, float value) throws IOException {
         writeFixed32(fieldNumber, Float.floatToRawIntBits(value));
     }
@@ -322,19 +321,19 @@ public abstract class BinaryWriter implements Writer {
         }
     }
 
-    
+
     public final void writeSFixed32List(int fieldNumber, int[] list, boolean packed)
             throws IOException {
         writeFixed32List(fieldNumber, list, packed);
     }
 
-    
+
     public final void writeSFixed64List(int fieldNumber, long[] list, boolean packed)
             throws IOException {
         writeFixed64List(fieldNumber, list, packed);
     }
 
-    
+
     public final void writeSInt32List(int fieldNumber, int[] list, boolean packed)
             throws IOException {
         writeSInt32List_Internal(fieldNumber, list, packed);
@@ -358,7 +357,7 @@ public abstract class BinaryWriter implements Writer {
         }
     }
 
-    
+
     public final void writeSInt64List(int fieldNumber, long[] list, boolean packed)
             throws IOException {
         writeSInt64List_Internal(fieldNumber, list, packed);
@@ -477,12 +476,12 @@ public abstract class BinaryWriter implements Writer {
         private int limitMinusOne;
         private int pos;
 
-        SafeHeapWriter(BufferAllocator alloc,GrpcBinWriter grpcBinWriter, int chunkSize) {
+        SafeHeapWriter(BufferAllocator alloc, GrpcBinWriter grpcBinWriter, int chunkSize) {
             super(alloc, grpcBinWriter, chunkSize);
             nextBuffer();
         }
 
-        
+
         void finishCurrentBuffer() {
             if (allocatedBuffer != null) {
                 totalDoneBytes += bytesWrittenToCurrentBuffer();
@@ -516,7 +515,7 @@ public abstract class BinaryWriter implements Writer {
             this.limitMinusOne = limit - 1;
             this.pos = limitMinusOne;
         }
-        
+
         public int getTotalBytesWritten() {
             return totalDoneBytes + bytesWrittenToCurrentBuffer();
         }
@@ -529,63 +528,63 @@ public abstract class BinaryWriter implements Writer {
             return pos - offsetMinusOne;
         }
 
-        
+
         public void writeUInt32(int fieldNumber, int value) throws IOException {
             requireSpace(MAX_VARINT32_SIZE * 2);
             writeVarint32(value);
             writeTag(fieldNumber, WIRETYPE_VARINT);
         }
 
-        
+
         public void writeInt32(int fieldNumber, int value) throws IOException {
             requireSpace(MAX_VARINT32_SIZE + MAX_VARINT64_SIZE);
             writeInt32(value);
             writeTag(fieldNumber, WIRETYPE_VARINT);
         }
 
-        
+
         public void writeSInt32(int fieldNumber, int value) throws IOException {
             requireSpace(MAX_VARINT32_SIZE * 2);
             writeSInt32(value);
             writeTag(fieldNumber, WIRETYPE_VARINT);
         }
 
-        
+
         public void writeFixed32(int fieldNumber, int value) throws IOException {
             requireSpace(MAX_VARINT32_SIZE + FIXED32_SIZE);
             writeFixed32(value);
             writeTag(fieldNumber, WIRETYPE_FIXED32);
         }
 
-        
+
         public void writeUInt64(int fieldNumber, long value) throws IOException {
             requireSpace(MAX_VARINT32_SIZE + MAX_VARINT64_SIZE);
             writeVarint64(value);
             writeTag(fieldNumber, WIRETYPE_VARINT);
         }
 
-        
+
         public void writeSInt64(int fieldNumber, long value) throws IOException {
             requireSpace(MAX_VARINT32_SIZE + MAX_VARINT64_SIZE);
             writeSInt64(value);
             writeTag(fieldNumber, WIRETYPE_VARINT);
         }
 
-        
+
         public void writeFixed64(int fieldNumber, long value) throws IOException {
             requireSpace(MAX_VARINT32_SIZE + FIXED64_SIZE);
             writeFixed64(value);
             writeTag(fieldNumber, WIRETYPE_FIXED64);
         }
 
-        
+
         public void writeBool(int fieldNumber, boolean value) throws IOException {
             requireSpace(MAX_VARINT32_SIZE + 1);
             write((byte) (value ? 1 : 0));
             writeTag(fieldNumber, WIRETYPE_VARINT);
         }
 
-        
+
         public void writeString(int fieldNumber, String value) throws IOException {
             int prevBytes = getTotalBytesWritten();
             writeString(value);
@@ -595,7 +594,7 @@ public abstract class BinaryWriter implements Writer {
             writeTag(fieldNumber, WIRETYPE_LENGTH_DELIMITED);
         }
 
-        
+
         public void writeBytes(int fieldNumber, byte[] value) throws IOException {
             write(value, 0, value.length);
 
@@ -630,27 +629,27 @@ public abstract class BinaryWriter implements Writer {
             }
         }
 
-        
+
         void writeSInt32(int value) {
             writeVarint32(encodeZigZag32(value));
         }
 
-        
+
         void writeSInt64(long value) {
             writeVarint64(encodeZigZag64(value));
         }
 
-        
+
         void writeBool(boolean value) {
             write((byte) (value ? 1 : 0));
         }
 
-        
+
         void writeTag(int fieldNumber, int wireType) {
             writeVarint32(WireFormat.makeTag(fieldNumber, wireType));
         }
 
-        
+
         void writeVarint32(int value) {
             if ((value & (~0 << 7)) == 0) {
                 writeVarint32OneByte(value);
@@ -695,7 +694,7 @@ public abstract class BinaryWriter implements Writer {
             buffer[pos--] = (byte) ((value & 0x7F) | 0x80);
         }
 
-        
+
         void writeVarint64(long value) {
             switch (computeUInt64SizeNoTag(value)) {
                 case 1:
@@ -816,7 +815,7 @@ public abstract class BinaryWriter implements Writer {
             buffer[pos--] = (byte) ((value & 0x7F) | 0x80);
         }
 
-        
+
         void writeFixed32(int value) {
             buffer[pos--] = (byte) (value >> 24);
             buffer[pos--] = (byte) (value >> 16);
@@ -824,7 +823,7 @@ public abstract class BinaryWriter implements Writer {
             buffer[pos--] = (byte) value;
         }
 
-        
+
         void writeFixed64(long value) {
             buffer[pos--] = (byte) ((int) (value >> 56));
             buffer[pos--] = (byte) ((int) (value >> 48));
@@ -836,7 +835,7 @@ public abstract class BinaryWriter implements Writer {
             buffer[pos--] = (byte) ((int) value);
         }
 
-        
+
         void writeString(String in) {
             // Request enough space to write the ASCII string.
             requireSpace(in.length());
@@ -904,7 +903,6 @@ public abstract class BinaryWriter implements Writer {
         }
 
 
-        
         void requireSpace(int size) {
             if (spaceLeft() < size) {
                 nextBuffer(size);

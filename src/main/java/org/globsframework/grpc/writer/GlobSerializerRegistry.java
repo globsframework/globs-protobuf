@@ -4,6 +4,7 @@ import org.globsframework.core.metamodel.GlobType;
 import org.globsframework.core.metamodel.fields.*;
 import org.globsframework.core.model.Glob;
 import org.globsframework.grpc.ProtobufField;
+import org.globsframework.grpc.writer.field.*;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -107,16 +108,14 @@ public class GlobSerializerRegistry {
                 case BooleanField booleanField -> {
                     if (grpcType == 0 || grpcType == 7) {
                         yield new ProtoBufBoolSerializerImpl(booleanField, grpcNumber);
-                    }
-                    else {
+                    } else {
                         throw new IllegalStateException("Unexpected value: " + grpcType);
                     }
                 }
                 case BooleanArrayField booleanArrayField -> {
                     if (grpcType == 0 || grpcType == 7) {
                         yield new ProtoBufBoolArraySerializerImpl(booleanArrayField, grpcNumber);
-                    }
-                    else {
+                    } else {
                         throw new IllegalStateException("Unexpected value: " + grpcType);
                     }
                 }
@@ -124,29 +123,24 @@ public class GlobSerializerRegistry {
                         new ProtoBufGlobFieldGlobSerializer(globField, grpcNumber, getGlobSerializer(globField.getTargetType()));
                 case GlobArrayField globArrayField ->
                         new ProtoBufGlobArrayFieldGlobSerializer(globArrayField, grpcNumber, getGlobSerializer(globArrayField.getTargetType()));
-                case StringField stringField ->
-                    new ProtoBufStringSerializerImpl(stringField, grpcNumber);
+                case StringField stringField -> new ProtoBufStringSerializerImpl(stringField, grpcNumber);
                 case StringArrayField stringArrayField ->
-                    new ProtoBufStringArraySerializerImpl(stringArrayField, grpcNumber);
+                        new ProtoBufStringArraySerializerImpl(stringArrayField, grpcNumber);
                 case DoubleField doubleField -> {
                     if (grpcType == 0 || grpcType == 11) {
                         yield new ProtoBufDoubleSerializerImpl(doubleField, grpcNumber);
-                    }
-                    else if (grpcType == 14) {
+                    } else if (grpcType == 14) {
                         yield new ProtoBufFloatSerializerImpl(doubleField, grpcNumber);
-                    }
-                    else {
+                    } else {
                         throw new IllegalStateException("Unexpected value: " + grpcType);
                     }
                 }
                 case DoubleArrayField doubleArrayField -> {
                     if (grpcType == 0 || grpcType == 11) {
                         yield new ProtoBufDoubleArraySerializerImpl(doubleArrayField, grpcNumber);
-                    }
-                    else if (grpcType == 14) {
+                    } else if (grpcType == 14) {
                         yield new ProtoBufFloatArraySerializerImpl(doubleArrayField, grpcNumber);
-                    }
-                    else {
+                    } else {
                         throw new IllegalStateException("Unexpected value: " + grpcType);
                     }
                 }

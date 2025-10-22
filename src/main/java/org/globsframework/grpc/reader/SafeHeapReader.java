@@ -404,7 +404,7 @@ public class SafeHeapReader {
                 int i = 0;
                 while (true) {
                     if (longBuffers.length == i) {
-                        longBuffers = Arrays.copyOf(longBuffers, longBuffers.length  + 16);
+                        longBuffers = Arrays.copyOf(longBuffers, longBuffers.length + 16);
                     }
                     longBuffers[i] = readInt64();
                     i++;
@@ -559,6 +559,7 @@ public class SafeHeapReader {
 
 
     boolean[] booleanBuffers = new boolean[16];
+
     public boolean[] readBoolList() throws IOException {
         switch (WireFormat.getTagWireType(tag)) {
             case WIRETYPE_LENGTH_DELIMITED: {
@@ -605,7 +606,7 @@ public class SafeHeapReader {
 
 
     public String[] readStringList() throws IOException {
-        return readStringListInternal( false);
+        return readStringListInternal(false);
     }
 
 
@@ -641,7 +642,6 @@ public class SafeHeapReader {
             }
         }
     }
-
 
 
     public Glob[] readMessageList(GlobInstantiator instantiator, GlobType type, ProtoBufGlobDeserializer globDeserializer)
