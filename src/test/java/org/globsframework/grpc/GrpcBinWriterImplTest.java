@@ -9,6 +9,7 @@ import org.globsframework.core.model.Glob;
 import org.globsframework.core.model.MutableGlob;
 import org.globsframework.core.utils.NanoChrono;
 import org.globsframework.grpc.echo.EchoRequest;
+import org.globsframework.grpc.echo.TestEnum;
 import org.globsframework.grpc.reader.ProtobufReader;
 import org.globsframework.grpc.reader.ProtobufReaderImpl;
 import org.globsframework.grpc.reader.SafeHeapReader;
@@ -83,6 +84,8 @@ public class GrpcBinWriterImplTest {
         Assertions.assertEquals(1.534f, data.get(EchoRequestType.fValue), 0.000001);
         Assertions.assertArrayEquals(new double[]{4.4, 5.4}, data.get(EchoRequestType.fValues), 0.000001);
 
+        Assertions.assertEquals(TestEnum.ONE.getNumber(), data.get(EchoRequestType.enumValue));
+
         GrpcBinWriter protobufWriter = new ProtobufWriterImpl(new GlobSerializerRegistry());
         final BufferAllocator alloc = new BufferAllocator();
         final BinaryWriter writer = BinaryWriter.newHeapInstance(alloc, protobufWriter);
@@ -140,6 +143,8 @@ public class GrpcBinWriterImplTest {
 
         Assertions.assertEquals(1.534f, readData.getF32(), 0.000001);
         Assertions.assertEquals(List.of(4.4f, 5.4f), readData.getF32ValuesList());
+
+        Assertions.assertEquals(TestEnum.ONE, readData.getEnumValue());
     }
 
     public static Glob buildGlobRequest() {
@@ -241,6 +246,7 @@ public class GrpcBinWriterImplTest {
 
         builder.addChild(ch1.build());
         builder.addChild(ch2.build());
+        builder.setEnumValue(TestEnum.ONE);
 
         final EchoRequest echoRequest = builder.build();
         return echoRequest;
@@ -287,39 +293,42 @@ public class GrpcBinWriterImplTest {
 
         public static final GlobArrayField child;
 
+        public static final IntegerField enumValue;
+
         static {
             final GlobTypeBuilder builder = GlobTypeBuilderFactory.create("EchoRequestType");
             TYPE = builder.unCompleteType();
-            i32 = builder.declareIntegerField("i32", GrpcField.create(2, GrpcField.GrpcType.int32));
-            si32 = builder.declareIntegerField("si32", GrpcField.create(3, GrpcField.GrpcType.sint32));
-            ui32 = builder.declareIntegerField("ui32", GrpcField.create(4, GrpcField.GrpcType.uint32));
-            fi32 = builder.declareIntegerField("fi32", GrpcField.create(5, GrpcField.GrpcType.fixed32));
-            sfi32 = builder.declareIntegerField("sf32", GrpcField.create(6, GrpcField.GrpcType.sfixed32));
-            i32values = builder.declareIntegerArrayField("i32values", GrpcField.create(7, GrpcField.GrpcType.int32));
-            si32values = builder.declareIntegerArrayField("si32values", GrpcField.create(8, GrpcField.GrpcType.sint32));
-            ui32values = builder.declareIntegerArrayField("ui32values", GrpcField.create(9, GrpcField.GrpcType.uint32));
-            fi32values = builder.declareIntegerArrayField("fi32values", GrpcField.create(10, GrpcField.GrpcType.fixed32));
-            sfi32values = builder.declareIntegerArrayField("sf32values", GrpcField.create(11, GrpcField.GrpcType.sfixed32));
-            i64 = builder.declareLongField("i64", GrpcField.create(14, GrpcField.GrpcType.int64));
-            si64 = builder.declareLongField("si64", GrpcField.create(15, GrpcField.GrpcType.sint64));
-            ui64 = builder.declareLongField("ui64", GrpcField.create(16, GrpcField.GrpcType.uint64));
-            fi64 = builder.declareLongField("fi64", GrpcField.create(17, GrpcField.GrpcType.fixed64));
-            sfi64 = builder.declareLongField("sf64", GrpcField.create(18, GrpcField.GrpcType.sfixed64));
-            i64values = builder.declareLongArrayField("i64values", GrpcField.create(19, GrpcField.GrpcType.int64));
-            si64values = builder.declareLongArrayField("si64values", GrpcField.create(20, GrpcField.GrpcType.sint64));
-            ui64values = builder.declareLongArrayField("ui64values", GrpcField.create(21, GrpcField.GrpcType.uint64));
-            fi64values = builder.declareLongArrayField("fi64values", GrpcField.create(22, GrpcField.GrpcType.fixed64));
-            sfi64values = builder.declareLongArrayField("sf64values", GrpcField.create(23, GrpcField.GrpcType.sfixed64));
-            children = builder.declareGlobField("children", EchoRequestType.TYPE, GrpcField.create(12));
-            child = builder.declareGlobArrayField("child", EchoRequestType.TYPE, GrpcField.create(13));
-            bValue = builder.declareBooleanField("bValue", GrpcField.create(24));
-            bBalues = builder.declareBooleanArrayField("bBalues", GrpcField.create(25));
-            message = builder.declareStringField("message", GrpcField.create(26));
-            messages = builder.declareStringArrayField("messages", GrpcField.create(27));
-            dValue = builder.declareDoubleField("dValue", GrpcField.create(28));
-            dValues = builder.declareDoubleArrayField("dValues", GrpcField.create(29));
-            fValue = builder.declareDoubleField("fValue", GrpcField.create(30, GrpcField.GrpcType.float_));
-            fValues = builder.declareDoubleArrayField("fValues", GrpcField.create(31, GrpcField.GrpcType.float_));
+            i32 = builder.declareIntegerField("i32", ProtobufField.create(2, ProtobufField.GrpcType.int32));
+            si32 = builder.declareIntegerField("si32", ProtobufField.create(3, ProtobufField.GrpcType.sint32));
+            ui32 = builder.declareIntegerField("ui32", ProtobufField.create(4, ProtobufField.GrpcType.uint32));
+            fi32 = builder.declareIntegerField("fi32", ProtobufField.create(5, ProtobufField.GrpcType.fixed32));
+            sfi32 = builder.declareIntegerField("sf32", ProtobufField.create(6, ProtobufField.GrpcType.sfixed32));
+            i32values = builder.declareIntegerArrayField("i32values", ProtobufField.create(7, ProtobufField.GrpcType.int32));
+            si32values = builder.declareIntegerArrayField("si32values", ProtobufField.create(8, ProtobufField.GrpcType.sint32));
+            ui32values = builder.declareIntegerArrayField("ui32values", ProtobufField.create(9, ProtobufField.GrpcType.uint32));
+            fi32values = builder.declareIntegerArrayField("fi32values", ProtobufField.create(10, ProtobufField.GrpcType.fixed32));
+            sfi32values = builder.declareIntegerArrayField("sf32values", ProtobufField.create(11, ProtobufField.GrpcType.sfixed32));
+            i64 = builder.declareLongField("i64", ProtobufField.create(14, ProtobufField.GrpcType.int64));
+            si64 = builder.declareLongField("si64", ProtobufField.create(15, ProtobufField.GrpcType.sint64));
+            ui64 = builder.declareLongField("ui64", ProtobufField.create(16, ProtobufField.GrpcType.uint64));
+            fi64 = builder.declareLongField("fi64", ProtobufField.create(17, ProtobufField.GrpcType.fixed64));
+            sfi64 = builder.declareLongField("sf64", ProtobufField.create(18, ProtobufField.GrpcType.sfixed64));
+            i64values = builder.declareLongArrayField("i64values", ProtobufField.create(19, ProtobufField.GrpcType.int64));
+            si64values = builder.declareLongArrayField("si64values", ProtobufField.create(20, ProtobufField.GrpcType.sint64));
+            ui64values = builder.declareLongArrayField("ui64values", ProtobufField.create(21, ProtobufField.GrpcType.uint64));
+            fi64values = builder.declareLongArrayField("fi64values", ProtobufField.create(22, ProtobufField.GrpcType.fixed64));
+            sfi64values = builder.declareLongArrayField("sf64values", ProtobufField.create(23, ProtobufField.GrpcType.sfixed64));
+            children = builder.declareGlobField("children", EchoRequestType.TYPE, ProtobufField.create(12));
+            child = builder.declareGlobArrayField("child", EchoRequestType.TYPE, ProtobufField.create(13));
+            bValue = builder.declareBooleanField("bValue", ProtobufField.create(24));
+            bBalues = builder.declareBooleanArrayField("bBalues", ProtobufField.create(25));
+            message = builder.declareStringField("message", ProtobufField.create(26));
+            messages = builder.declareStringArrayField("messages", ProtobufField.create(27));
+            dValue = builder.declareDoubleField("dValue", ProtobufField.create(28));
+            dValues = builder.declareDoubleArrayField("dValues", ProtobufField.create(29));
+            fValue = builder.declareDoubleField("fValue", ProtobufField.create(30, ProtobufField.GrpcType.float_));
+            fValues = builder.declareDoubleArrayField("fValues", ProtobufField.create(31, ProtobufField.GrpcType.float_));
+            enumValue = builder.declareIntegerField("enumValue", ProtobufField.create(32, ProtobufField.GrpcType.enum_));
             builder.complete();
         }
     }

@@ -6,6 +6,12 @@ option java_outer_classname = "EchoProto";
 
 package echo;
 
+enum TestEnum {
+  UNDEF = 0;
+  ONE = 1;
+  TWO = 2;
+}
+
 // The request message containing the message to echo
 message EchoRequest {
   int32 i32 = 2;
@@ -44,5 +50,7 @@ message EchoRequest {
   repeated double d64Values = 29;
   float f32 = 30;
   repeated float f32Values = 31;
+
+  TestEnum enumValue = 32;
 
 }

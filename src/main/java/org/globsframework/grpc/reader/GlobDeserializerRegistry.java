@@ -4,7 +4,8 @@ import org.globsframework.core.metamodel.GlobType;
 import org.globsframework.core.metamodel.fields.*;
 import org.globsframework.core.model.Glob;
 import org.globsframework.core.model.GlobInstantiator;
-import org.globsframework.grpc.writer.GrpcField;
+import org.globsframework.grpc.ProtobufField;
+import org.globsframework.grpc.writer.ProtoBufSInt32SerializerImpl;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -33,8 +34,8 @@ public class GlobDeserializerRegistry {
     private int computeSize(GlobType type) {
         int maxLen = 0;
         for (Field field : type.getFields()) {
-            final Glob annotation = field.getAnnotation(GrpcField.KEY);
-            final Integer grpcNumber = annotation.getNotNull(GrpcField.number);
+            final Glob annotation = field.getAnnotation(ProtobufField.KEY);
+            final Integer grpcNumber = annotation.getNotNull(ProtobufField.number);
             maxLen = Math.max(maxLen, grpcNumber);
         }
         return maxLen + 1;
@@ -43,9 +44,9 @@ public class GlobDeserializerRegistry {
     public void createFieldDeserializer(GlobType type, ProtoBufGlobDeserializer[] attributes) {
         final Field[] fields = type.getFields();
         for (Field field : fields) {
-            final Glob annotation = field.getAnnotation(GrpcField.KEY);
-            final int grpcType = annotation.get(GrpcField.type);
-            final Integer grpcNumber = annotation.getNotNull(GrpcField.number);
+            final Glob annotation = field.getAnnotation(ProtobufField.KEY);
+            final int grpcType = annotation.get(ProtobufField.type);
+            final Integer grpcNumber = annotation.getNotNull(ProtobufField.number);
             attributes[grpcNumber] =
                     switch (field) {
                         case GlobField globField -> {
@@ -97,6 +98,9 @@ public class GlobDeserializerRegistry {
                                 }
                                 case 5 -> {
                                     yield new ProtoBufGlobVarSInt32DeserializerImpl(integerField);
+                                }
+                                case 8 -> {
+                                    yield new ProtoBufGlobVarInt32DeserializerImpl(integerField);
                                 }
                                 case 12 -> {
                                     yield new ProtoBufGlobFixInt32DeserializerImpl(integerField);

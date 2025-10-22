@@ -1,4 +1,4 @@
-package org.globsframework.grpc.writer;
+package org.globsframework.grpc;
 
 import org.globsframework.core.metamodel.GlobType;
 import org.globsframework.core.metamodel.GlobTypeBuilder;
@@ -8,7 +8,7 @@ import org.globsframework.core.model.Glob;
 import org.globsframework.core.model.Key;
 import org.globsframework.core.model.KeyBuilder;
 
-public class GrpcField {
+public class ProtobufField {
     public static final GlobType TYPE;
 
     public static final IntegerField number;
@@ -19,14 +19,14 @@ public class GrpcField {
 
     public static Glob create(int number, GrpcType type) {
         return TYPE.instantiate()
-                .set(GrpcField.number, number)
-                .set(GrpcField.type, type.typeID);
+                .set(ProtobufField.number, number)
+                .set(ProtobufField.type, type.typeID);
     }
 
     public static Glob create(int number) {
         return TYPE.instantiate()
-                .set(GrpcField.number, number)
-                .set(GrpcField.type, GrpcType.NA.typeID);
+                .set(ProtobufField.number, number)
+                .set(ProtobufField.type, GrpcType.NA.typeID);
     }
 
     static {

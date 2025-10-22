@@ -3,6 +3,7 @@ package org.globsframework.grpc.writer;
 import org.globsframework.core.metamodel.GlobType;
 import org.globsframework.core.metamodel.fields.*;
 import org.globsframework.core.model.Glob;
+import org.globsframework.grpc.ProtobufField;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -28,9 +29,9 @@ public class GlobSerializerRegistry {
         final Field[] fields = type.getFields();
         int i = 0;
         for (Field field : fields) {
-            final Glob annotation = field.getAnnotation(GrpcField.KEY);
-            final int grpcType = annotation.get(GrpcField.type);
-            final Integer grpcNumber = annotation.getNotNull(GrpcField.number);
+            final Glob annotation = field.getAnnotation(ProtobufField.KEY);
+            final int grpcType = annotation.get(ProtobufField.type);
+            final Integer grpcNumber = annotation.getNotNull(ProtobufField.number);
             attributes[i] = switch (field) {
                 case LongArrayField longArrayField -> {
                     switch (grpcType) {
@@ -73,6 +74,9 @@ public class GlobSerializerRegistry {
                         }
                         case 5 -> {
                             yield new ProtoBufSInt32SerializerImpl(integerField, grpcNumber);
+                        }
+                        case 8 -> {
+                            yield new ProtoBufVarInt32SerializerImpl(integerField, grpcNumber);
                         }
                         case 12 -> {
                             yield new ProtoBufFixInt32SerializerImpl(integerField, grpcNumber);
