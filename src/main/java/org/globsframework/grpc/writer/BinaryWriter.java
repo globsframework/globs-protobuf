@@ -55,10 +55,6 @@ public abstract class BinaryWriter implements Writer {
      * necessary.
      */
     public static BinaryWriter newHeapInstance(BufferAllocator alloc, GrpcBinWriter grpcBinWriter, int chunkSize) {
-        return newSafeHeapInstance(alloc, grpcBinWriter, chunkSize);
-    }
-
-    static BinaryWriter newSafeHeapInstance(BufferAllocator alloc, GrpcBinWriter grpcBinWriter, int chunkSize) {
         return new SafeHeapWriter(alloc, grpcBinWriter, chunkSize);
     }
 
