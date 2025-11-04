@@ -14,7 +14,7 @@ public class ProtoBufDoubleSerializerImpl implements ProtoBufGlobSerializer {
 
     public ProtoBufDoubleSerializerImpl(DoubleField field, int fieldNumber) {
         this.fieldNumber = fieldNumber;
-        this.getValueAccessor = (GlobGetDoubleAccessor) field.getGlobType().getGlobFactory().getGetValueAccessor(field);
+        this.getValueAccessor = field.getGlobType().getGetAccessor(field);
     }
 
     @Override

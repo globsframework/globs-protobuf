@@ -17,7 +17,7 @@ public class ProtoBufGlobFieldGlobSerializer implements ProtoBufGlobSerializer {
                                            ProtoBufGlobSerializer globSerializer) {
         this.grpcNumber = grpcNumber;
         this.globSerializer = globSerializer;
-        this.getValueAccessor = (GlobGetGlobAccessor) field.getGlobType().getGlobFactory().getGetValueAccessor(field);
+        this.getValueAccessor = field.getGlobType().getGetAccessor(field);
     }
 
     @Override

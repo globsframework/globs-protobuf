@@ -14,7 +14,7 @@ public class ProtoBufSInt32SerializerImpl implements ProtoBufGlobSerializer {
 
     public ProtoBufSInt32SerializerImpl(IntegerField field, int fieldNumber) {
         this.fieldNumber = fieldNumber;
-        this.getValueAccessor = (GlobGetIntAccessor) field.getGlobType().getGlobFactory().getGetValueAccessor(field);
+        this.getValueAccessor = field.getGlobType().getGetAccessor(field);
     }
 
     public void write(Glob data, BinaryWriter binaryWriter) throws IOException {

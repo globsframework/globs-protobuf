@@ -14,7 +14,7 @@ public class ProtoBufSFixInt32ArraySerializerImpl implements ProtoBufGlobSeriali
 
     public ProtoBufSFixInt32ArraySerializerImpl(IntegerArrayField field, int fieldNumber) {
         this.fieldNumber = fieldNumber;
-        this.getValueAccessor = (GlobGetIntArrayAccessor) field.getGlobType().getGlobFactory().getGetValueAccessor(field);
+        this.getValueAccessor = field.getGlobType().getGetAccessor(field);
     }
 
     public void write(Glob data, BinaryWriter binaryWriter) throws IOException {

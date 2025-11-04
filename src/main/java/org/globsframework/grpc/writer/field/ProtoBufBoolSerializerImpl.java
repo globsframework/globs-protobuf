@@ -14,7 +14,7 @@ public class ProtoBufBoolSerializerImpl implements ProtoBufGlobSerializer {
 
     public ProtoBufBoolSerializerImpl(BooleanField field, int fieldNumber) {
         this.fieldNumber = fieldNumber;
-        this.getValueAccessor = (GlobGetBooleanAccessor) field.getGlobType().getGlobFactory().getGetValueAccessor(field);
+        this.getValueAccessor = field.getGlobType().getGetAccessor(field);
     }
 
     @Override
