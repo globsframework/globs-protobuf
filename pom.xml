@@ -7,7 +7,7 @@
     <packaging>jar</packaging>
     <artifactId>globs-protobuf</artifactId>
     <name>globs serialization in protobuf</name>
-    <version>4.2-SNAPSHOT</version>
+    <version>4.2.0</version>
 
     <developers>
         <developer>
@@ -41,7 +41,7 @@
         <connection>scm:git:git@github.com:globsframework/globs-protobuf</connection>
         <developerConnection>scm:git:git@github.com:globsframework/globs-protobuf</developerConnection>
         <url>https://github.com/globsframework/globs-protobuf</url>
-      <tag>4.0.0</tag>
+      <tag>4.2.0</tag>
   </scm>
 
     <profiles>
