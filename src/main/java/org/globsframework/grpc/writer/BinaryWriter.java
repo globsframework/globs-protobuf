@@ -33,10 +33,8 @@ import static org.globsframework.grpc.writer.WireFormat.*;
 
 public abstract class BinaryWriter implements Writer {
     public static final int DEFAULT_CHUNK_SIZE = 4096;
-
     private final BufferAllocator alloc;
     private final int chunkSize;
-    final GrpcBinWriter grpcBinWriter;
 
     final ArrayDeque<AllocatedBuffer> buffers = new ArrayDeque<AllocatedBuffer>(4);
     int totalDoneBytes;
@@ -46,24 +44,23 @@ public abstract class BinaryWriter implements Writer {
      * Creates a new {@link BinaryWriter} that will allocate heap buffers of {@link
      * #DEFAULT_CHUNK_SIZE} as necessary.
      */
-    public static BinaryWriter newHeapInstance(BufferAllocator alloc, GrpcBinWriter grpcBinWriter) {
-        return newHeapInstance(alloc, grpcBinWriter, DEFAULT_CHUNK_SIZE);
+    public static BinaryWriter newHeapInstance(BufferAllocator alloc) {
+        return newHeapInstance(alloc, DEFAULT_CHUNK_SIZE);
     }
 
     /**
      * Creates a new {@link BinaryWriter} that will allocate heap buffers of {@code chunkSize} as
      * necessary.
      */
-    public static BinaryWriter newHeapInstance(BufferAllocator alloc, GrpcBinWriter grpcBinWriter, int chunkSize) {
-        return new SafeHeapWriter(alloc, grpcBinWriter, chunkSize);
+    public static BinaryWriter newHeapInstance(BufferAllocator alloc, int chunkSize) {
+        return new SafeHeapWriter(alloc, chunkSize);
     }
 
     /**
      * Only allow subclassing for inner classes.
      */
-    private BinaryWriter(BufferAllocator alloc, GrpcBinWriter grpcBinWriter, int chunkSize) {
+    private BinaryWriter(BufferAllocator alloc, int chunkSize) {
         this.alloc = alloc;
-        this.grpcBinWriter = grpcBinWriter;
         if (chunkSize <= 0) {
             throw new IllegalArgumentException("chunkSize must be > 0");
         }
@@ -377,12 +374,6 @@ public abstract class BinaryWriter implements Writer {
         }
     }
 
-    public final void writeMessageList(int fieldNumber, Glob[] list) throws IOException {
-        for (int i = list.length - 1; i >= 0; i--) {
-            writeMessage(fieldNumber, list[i]);
-        }
-    }
-
     public final void writeMessageList(int fieldNumber, Glob[] list, ProtoBufGlobSerializer globSerializer) throws IOException {
         for (int i = list.length - 1; i >= 0; i--) {
             writeMessage(fieldNumber, list[i], globSerializer);
@@ -472,8 +463,8 @@ public abstract class BinaryWriter implements Writer {
         private int limitMinusOne;
         private int pos;
 
-        SafeHeapWriter(BufferAllocator alloc, GrpcBinWriter grpcBinWriter, int chunkSize) {
-            super(alloc, grpcBinWriter, chunkSize);
+        SafeHeapWriter(BufferAllocator alloc, int chunkSize) {
+            super(alloc, chunkSize);
             nextBuffer();
         }
 
@@ -602,15 +593,6 @@ public abstract class BinaryWriter implements Writer {
         public void writeMessage(int fieldNumber, Glob value, ProtoBufGlobSerializer globSerializer) throws IOException {
             int prevBytes = getTotalBytesWritten();
             globSerializer.write(value, this);
-            int length = getTotalBytesWritten() - prevBytes;
-            requireSpace(MAX_VARINT32_SIZE * 2);
-            writeVarint32(length);
-            writeTag(fieldNumber, WIRETYPE_LENGTH_DELIMITED);
-        }
-
-        public void writeMessage(int fieldNumber, Glob value) throws IOException {
-            int prevBytes = getTotalBytesWritten();
-            grpcBinWriter.write(value, this);
             int length = getTotalBytesWritten() - prevBytes;
             requireSpace(MAX_VARINT32_SIZE * 2);
             writeVarint32(length);

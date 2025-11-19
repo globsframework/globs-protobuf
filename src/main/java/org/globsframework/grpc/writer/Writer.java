@@ -69,8 +69,6 @@ interface Writer {
 
     void writeSInt64(int fieldNumber, long value) throws IOException;
 
-    void writeMessage(int fieldNumber, Glob value) throws IOException;
-
     void writeMessage(int fieldNumber, Glob value, ProtoBufGlobSerializer globSerializer) throws IOException;
 
     void writeInt32List(int fieldNumber, int[] value, boolean packed) throws IOException;
@@ -104,8 +102,6 @@ interface Writer {
     void writeSInt32List(int fieldNumber, int[] value, boolean packed) throws IOException;
 
     void writeSInt64List(int fieldNumber, long[] value, boolean packed) throws IOException;
-
-    void writeMessageList(int fieldNumber, Glob[] value) throws IOException;
 
     void writeMessageList(int fieldNumber, Glob[] list, ProtoBufGlobSerializer globSerializer) throws IOException;
 

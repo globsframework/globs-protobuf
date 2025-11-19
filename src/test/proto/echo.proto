@@ -54,3 +54,7 @@ message EchoRequest {
   TestEnum enumValue = 32;
 
 }
+
+service CallEcho {
+  rpc echo(stream EchoRequest) returns (stream EchoRequest) {}
+}

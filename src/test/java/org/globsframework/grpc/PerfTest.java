@@ -7,7 +7,7 @@ import org.globsframework.core.model.Glob;
 import org.globsframework.core.model.MutableGlob;
 import org.globsframework.grpc.echo.EchoRequest;
 import org.globsframework.grpc.reader.GlobDeserializerRegistry;
-import org.globsframework.grpc.reader.ProtoBufGlobDeserializerImpl;
+import org.globsframework.grpc.reader.ProtoBufGlobDeserializer;
 import org.globsframework.grpc.reader.SafeHeapReader;
 import org.globsframework.grpc.writer.*;
 import org.openjdk.jmh.annotations.*;
@@ -24,7 +24,7 @@ import java.nio.ByteBuffer;
 public class PerfTest {
     private GrpcBinWriter grpcBinWriter;
     private byte[] protobufBuffer;
-    private ProtoBufGlobDeserializerImpl deserializer;
+    private ProtoBufGlobDeserializer deserializer;
 
     @Setup
     public void setup() throws IOException {
@@ -46,7 +46,7 @@ public class PerfTest {
     @Benchmark
     public Glob testGlobRead() throws IOException {
         final MutableGlob instantiate = GrpcBinWriterImplTest.EchoRequestType.TYPE.instantiate();
-        deserializer.read(instantiate, new SafeHeapReader(ByteBuffer.wrap(protobufBuffer), true) );
+        deserializer.read(instantiate, new SafeHeapReader(ByteBuffer.wrap(protobufBuffer)) );
         return instantiate;
     }
 
@@ -62,7 +62,7 @@ public class PerfTest {
     public byte[] testGlobWrite() throws IOException {
         Glob glob = GrpcBinWriterImplTest.buildGlobRequest();
         final BufferAllocator alloc = new BufferAllocator();
-        final BinaryWriter writer = BinaryWriter.newHeapInstance(alloc, grpcBinWriter, 1024);
+        final BinaryWriter writer = BinaryWriter.newHeapInstance(alloc, 1024);
         grpcBinWriter.write(glob, writer);
         return writer.complete().element().array();
     }

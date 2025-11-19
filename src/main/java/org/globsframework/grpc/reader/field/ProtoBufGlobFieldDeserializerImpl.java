@@ -13,12 +13,12 @@ import java.io.IOException;
 
 public class ProtoBufGlobFieldDeserializerImpl implements ProtoBufGlobDeserializer {
     private final GlobType type;
-    private final ProtoBufGlobDeserializerImpl deserializer;
+    private final ProtoBufGlobDeserializer deserializer;
     private final GlobInstantiator instantiator;
     private final GlobSetGlobAccessor setAccessor;
 
 
-    public ProtoBufGlobFieldDeserializerImpl(GlobField field, ProtoBufGlobDeserializerImpl deserializer,
+    public ProtoBufGlobFieldDeserializerImpl(GlobField field, ProtoBufGlobDeserializer deserializer,
                                              GlobInstantiator instantiator) {
         setAccessor = field.getGlobType().getSetAccessor(field);
         this.type = field.getGlobType();

@@ -34,7 +34,7 @@ public class GrpcBinWriterImplTest {
         echoRequest.writeTo(output);
         ProtobufReader protobufReader = new ProtobufReaderImpl(GlobType::instantiate);
         final Glob data = protobufReader.read(EchoRequestType.TYPE,
-                new SafeHeapReader(ByteBuffer.wrap(output.toByteArray()), true));
+                new SafeHeapReader(ByteBuffer.wrap(output.toByteArray())));
         Assertions.assertNotNull(data);
         Assertions.assertEquals(1, data.get(EchoRequestType.i32));
         Assertions.assertEquals(341, data.get(EchoRequestType.fi32));
@@ -88,7 +88,7 @@ public class GrpcBinWriterImplTest {
 
         GrpcBinWriter protobufWriter = new ProtobufWriterImpl(new GlobSerializerRegistry());
         final BufferAllocator alloc = new BufferAllocator();
-        final BinaryWriter writer = BinaryWriter.newHeapInstance(alloc, protobufWriter);
+        final BinaryWriter writer = BinaryWriter.newHeapInstance(alloc);
         protobufWriter.write(data, writer);
         final Queue<AllocatedBuffer> complete = writer.complete();
         EchoRequest.Builder builderRead = EchoRequest.newBuilder();
@@ -339,21 +339,32 @@ public class GrpcBinWriterImplTest {
         EchoRequest echoRequest = GrpcBinWriterImplTest.buildGrpRequest();
         ProtobufWriterImpl grpcBinWriter = new ProtobufWriterImpl(new GlobSerializerRegistry());
         echoRequest.writeTo(new ByteArrayOutputStream());
-        grpcBinWriter.write(glob, BinaryWriter.newHeapInstance(new BufferAllocator(), grpcBinWriter, 1024));
-
-
+        grpcBinWriter.write(glob, BinaryWriter.newHeapInstance(new BufferAllocator(), 1024));
     }
 
     @Test
     public void testProtobuf() throws IOException {
-        NanoChrono nanoChrono = NanoChrono.start();
-        for (int i = 0; i < 1_000_000; i++) {
-            EchoRequest echoRequest = GrpcBinWriterImplTest.buildGrpRequest();
-            final ByteArrayOutputStream output = new ByteArrayOutputStream();
-            echoRequest.writeTo(output);
-            Assertions.assertNotNull(output.toByteArray());
+        final ByteArrayOutputStream output = new ByteArrayOutputStream();
+        {
+            NanoChrono nanoChrono = NanoChrono.start();
+            for (int i = 0; i < 1_000_000; i++) {
+                EchoRequest echoRequest = GrpcBinWriterImplTest.buildGrpRequest();
+                output.reset();
+                echoRequest.writeTo(output);
+                Assertions.assertNotNull(output.toByteArray());
+            }
+            System.out.println("protobuf write "+ nanoChrono.getElapsedTimeInMS());
         }
-        System.out.println("protobuf : "+ nanoChrono.getElapsedTimeInMS());
+        {
+            NanoChrono nanoChrono = NanoChrono.start();
+            for (int i = 0; i < 1_000_000; i++) {
+                EchoRequest echoRequest = EchoRequest.parseFrom(output.toByteArray());
+                Assertions.assertNotNull(echoRequest);
+                Assertions.assertEquals(341, echoRequest.getFi32());
+            }
+            System.out.println("protobuf read "+ nanoChrono.getElapsedTimeInMS());
+        }
+
     }
 
     final public ProtobufWriterImpl grpcBinWriter;
@@ -366,19 +377,37 @@ public class GrpcBinWriterImplTest {
 
     @Test
     public void testGlob() throws IOException {
-        NanoChrono nanoChrono = NanoChrono.start();
         final ProtoBufGlobSerializer globSerializer = registry.getGlobSerializer(EchoRequestType.TYPE);
-        for (int i = 0; i < 1_000_000; i++) {
-            Glob glob = GrpcBinWriterImplTest.buildGlobRequest();
-            final BufferAllocator alloc = new BufferAllocator();
-            final BinaryWriter writer = BinaryWriter.newHeapInstance(alloc, grpcBinWriter, 1024);
-            globSerializer.write(glob, writer);
-            Assertions.assertNotNull(writer.complete().element().array());
+        final byte[] bytes = new byte[1024];
+        final BufferAllocator alloc = new BufferAllocator(){
+            @Override
+            public AllocatedBuffer allocateHeapBuffer(int capacity) {
+                return new AllocatedBuffer(bytes, 0, capacity);
+            }
+        };
+        AllocatedBuffer element = null;
+        {
+            NanoChrono nanoChrono = NanoChrono.start();
+            for (int i = 0; i < 1_000_000; i++) {
+                Glob glob = GrpcBinWriterImplTest.buildGlobRequest();
+                final BinaryWriter writer = BinaryWriter.newHeapInstance(alloc, 1024);
+                globSerializer.write(glob, writer);
+                element = writer.complete().element();
+                Assertions.assertNotNull(element.array());
+            }
+            System.out.println("glob write " + nanoChrono.getElapsedTimeInMS());
         }
-        System.out.println("glob " + nanoChrono.getElapsedTimeInMS());
-    }
-
-    static {
-        System.setProperty("globsframework.field.no.check", "true");
+        {
+            NanoChrono nanoChrono = NanoChrono.start();
+            ProtobufReader protobufReader = new ProtobufReaderImpl(GlobType::instantiate);
+            for (int i = 0; i < 1_000_000; i++) {
+                final Glob data = protobufReader.read(EchoRequestType.TYPE,
+                        new SafeHeapReader(
+                                ByteBuffer.wrap(bytes, element.position(), element.remaining())));
+                Assertions.assertNotNull(data);
+                Assertions.assertEquals(341, data.get(EchoRequestType.fi32));
+            }
+            System.out.println("glob read " + nanoChrono.getElapsedTimeInMS());
+        }
     }
 }

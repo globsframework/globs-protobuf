@@ -33,7 +33,6 @@ public class SafeHeapReader {
     private static final long[] emptyLong = new long[0];
     private static final double[] emptyDouble = new double[0];
 
-    private final boolean bufferIsImmutable;
     private final byte[] buffer;
     private int pos;
     private final int initialPos;
@@ -44,12 +43,16 @@ public class SafeHeapReader {
     private long[] longBuffers = emptyLong; // new long[16];
     private double[] doubleBuffers = emptyDouble; //new double[16];
 
-
-    public SafeHeapReader(ByteBuffer bytebuf, boolean bufferIsImmutable) {
-        this.bufferIsImmutable = bufferIsImmutable;
+    public SafeHeapReader(ByteBuffer bytebuf) {
         buffer = bytebuf.array();
         initialPos = pos = bytebuf.arrayOffset() + bytebuf.position();
         limit = bytebuf.arrayOffset() + bytebuf.limit();
+    }
+
+    public SafeHeapReader(byte[] buffer, int pos, int limit) {
+        this.buffer = buffer;
+        initialPos = this.pos = pos;
+        this.limit = limit;
     }
 
     private boolean isAtEnd() {
