@@ -224,6 +224,7 @@ public class GrpcBinWriterImplTest {
         EchoRequest.Builder ch2 = EchoRequest.newBuilder();
         ch2.setI32(20);
         ch2.setSi32(5678);
+        ch2.setGbValue(BoolValue.newBuilder().build());
 
         EchoRequest.Builder builder = EchoRequest.newBuilder();
         builder.setI32(1);

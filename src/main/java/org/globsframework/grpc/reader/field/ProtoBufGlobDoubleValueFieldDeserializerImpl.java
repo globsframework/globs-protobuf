@@ -17,7 +17,8 @@ public class ProtoBufGlobDoubleValueFieldDeserializerImpl implements ProtoBufGlo
 
     @Override
     public void read(MutableGlob mutableGlob, SafeHeapReader reader) throws IOException {
-        reader.readValueHeader();
-        setAccessor.setNative(mutableGlob, reader.readDouble());
+        if (reader.readValueHeader()) {
+            setAccessor.setNative(mutableGlob, reader.readDouble());
+        }
     }
 }

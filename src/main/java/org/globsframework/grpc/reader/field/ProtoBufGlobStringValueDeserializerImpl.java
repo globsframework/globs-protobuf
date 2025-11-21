@@ -17,7 +17,8 @@ public class ProtoBufGlobStringValueDeserializerImpl implements ProtoBufGlobDese
 
     @Override
     public void read(MutableGlob mutableGlob, SafeHeapReader reader) throws IOException {
-        reader.readValueHeader();
-        setAccessor.set(mutableGlob, reader.readString());
+        if (reader.readValueHeader()) {
+            setAccessor.set(mutableGlob, reader.readString());
+        }
     }
 }
