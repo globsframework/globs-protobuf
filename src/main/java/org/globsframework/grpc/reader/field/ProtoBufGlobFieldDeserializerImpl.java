@@ -17,11 +17,10 @@ public class ProtoBufGlobFieldDeserializerImpl implements ProtoBufGlobDeserializ
     private final GlobInstantiator instantiator;
     private final GlobSetGlobAccessor setAccessor;
 
-
     public ProtoBufGlobFieldDeserializerImpl(GlobField field, ProtoBufGlobDeserializer deserializer,
                                              GlobInstantiator instantiator) {
         setAccessor = field.getGlobType().getSetAccessor(field);
-        this.type = field.getGlobType();
+        this.type = field.getTargetType();
         this.deserializer = deserializer;
         this.instantiator = instantiator;
     }
