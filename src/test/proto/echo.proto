@@ -1,5 +1,7 @@
 syntax = "proto3";
 
+import "google/protobuf/wrappers.proto";
+
 option java_multiple_files = true;
 option java_package = "org.globsframework.grpc.echo";
 option java_outer_classname = "EchoProto";
@@ -52,6 +54,14 @@ message EchoRequest {
   repeated float f32Values = 31;
 
   TestEnum enumValue = 32;
+
+  google.protobuf.StringValue gstrValue = 33;
+  google.protobuf.Int32Value gint32Value = 34;
+  google.protobuf.Int64Value gint64Value = 35;
+  google.protobuf.BoolValue gbValue = 36;
+
+  google.protobuf.UInt32Value guint32Value = 37;
+  google.protobuf.UInt64Value guint64Value = 38;
 
 }
 

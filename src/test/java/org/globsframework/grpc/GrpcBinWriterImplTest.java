@@ -1,6 +1,7 @@
 package org.globsframework.grpc;
 
 
+import com.google.protobuf.*;
 import org.globsframework.core.metamodel.GlobType;
 import org.globsframework.core.metamodel.GlobTypeBuilder;
 import org.globsframework.core.metamodel.GlobTypeBuilderFactory;
@@ -86,6 +87,13 @@ public class GrpcBinWriterImplTest {
 
         Assertions.assertEquals(TestEnum.ONE.getNumber(), data.get(EchoRequestType.enumValue));
 
+        Assertions.assertEquals("StringValue", data.get(EchoRequestType.gstrValue));
+        Assertions.assertEquals(1234, data.get(EchoRequestType.gi32Value));
+        Assertions.assertEquals(1234567890123456789L, data.get(EchoRequestType.gi64Value));
+        Assertions.assertEquals(4321, data.get(EchoRequestType.giu32Value));
+        Assertions.assertEquals(324552L, data.get(EchoRequestType.giu64Value));
+        Assertions.assertTrue(data.isTrue(EchoRequestType.gbValue));
+
         GrpcBinWriter protobufWriter = new ProtobufWriterImpl(new GlobSerializerRegistry());
         final BufferAllocator alloc = new BufferAllocator();
         final BinaryWriter writer = BinaryWriter.newHeapInstance(alloc);
@@ -145,6 +153,13 @@ public class GrpcBinWriterImplTest {
         Assertions.assertEquals(List.of(4.4f, 5.4f), readData.getF32ValuesList());
 
         Assertions.assertEquals(TestEnum.ONE, readData.getEnumValue());
+
+        Assertions.assertEquals("StringValue", readData.getGstrValue().getValue());
+        Assertions.assertEquals(1234, readData.getGint32Value().getValue());
+        Assertions.assertEquals(1234567890123456789L, readData.getGint64Value().getValue());
+        Assertions.assertEquals(4321, readData.getGuint32Value().getValue());
+        Assertions.assertEquals(324552L, readData.getGuint64Value().getValue());
+        Assertions.assertTrue( readData.getGbValue().getValue());
     }
 
     public static Glob buildGlobRequest() {
@@ -190,6 +205,13 @@ public class GrpcBinWriterImplTest {
         main.set(EchoRequestType.fValues, new double[]{4.4, 5.4});
         main.set(EchoRequestType.children, ch1);
         main.set(EchoRequestType.child, new Glob[]{ch1, ch2});
+
+        main.set(EchoRequestType.gstrValue, "StringValue");
+        main.set(EchoRequestType.gbValue, true);
+        main.set(EchoRequestType.gi32Value, 1234);
+        main.set(EchoRequestType.gi64Value, 1234567890123456789L);
+        main.set(EchoRequestType.giu32Value, 4321);
+        main.set(EchoRequestType.giu64Value, 324552L);
 
         return main;
     }
@@ -248,6 +270,16 @@ public class GrpcBinWriterImplTest {
         builder.addChild(ch2.build());
         builder.setEnumValue(TestEnum.ONE);
 
+        builder.setGstrValue(StringValue.newBuilder().setValue("StringValue").build());
+
+        builder.setGbValue(BoolValue.newBuilder().setValue(true).build());
+        builder.setGint32Value(Int32Value.newBuilder().setValue(1234).build());
+        builder.setGint64Value(Int64Value.newBuilder().setValue(1234567890123456789L).build());
+
+        builder.setGuint32Value(UInt32Value.newBuilder().setValue(4321).build());
+        builder.setGuint64Value(UInt64Value.newBuilder().setValue(324552L).build());
+
+
         final EchoRequest echoRequest = builder.build();
         return echoRequest;
     }
@@ -292,8 +324,14 @@ public class GrpcBinWriterImplTest {
         public static final GlobField children;
 
         public static final GlobArrayField child;
-
         public static final IntegerField enumValue;
+        public static final StringField gstrValue;
+        public static final IntegerField gi32Value;
+        public static final LongField gi64Value;
+        public static final BooleanField gbValue;
+        public static final IntegerField giu32Value;
+        public static final LongField giu64Value;
+
 
         static {
             final GlobTypeBuilder builder = GlobTypeBuilderFactory.create("EchoRequestType");
@@ -329,6 +367,12 @@ public class GrpcBinWriterImplTest {
             fValue = builder.declareDoubleField("fValue", ProtobufField.create(30, ProtobufField.GrpcType.float_));
             fValues = builder.declareDoubleArrayField("fValues", ProtobufField.create(31, ProtobufField.GrpcType.float_));
             enumValue = builder.declareIntegerField("enumValue", ProtobufField.create(32, ProtobufField.GrpcType.enum_));
+            gstrValue = builder.declareStringField("gstrValue", ProtobufField.createValue(33));
+            gi32Value = builder.declareIntegerField("gi32Value", ProtobufField.createValue(34));
+            gi64Value = builder.declareLongField("gi64Value", ProtobufField.createValue(35));
+            gbValue = builder.declareBooleanField("gbValue", ProtobufField.createValue(36));
+            giu32Value = builder.declareIntegerField("giu32Value", ProtobufField.createValue(37, ProtobufField.GrpcType.uint32));
+            giu64Value = builder.declareLongField("giu64Value", ProtobufField.createValue(38, ProtobufField.GrpcType.uint64));
             builder.complete();
         }
     }

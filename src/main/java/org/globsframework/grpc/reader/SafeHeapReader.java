@@ -169,11 +169,20 @@ public class SafeHeapReader {
         return result;
     }
 
-
     public Glob readMessage(GlobInstantiator instantiator, GlobType type, ProtoBufGlobDeserializer globDeserializer)
             throws IOException {
         requireWireType(WIRETYPE_LENGTH_DELIMITED);
         return readMessageNoTagCheck(instantiator, type, globDeserializer);
+    }
+
+    public void readValueHeader() throws IOException {
+        requireWireType(WIRETYPE_LENGTH_DELIMITED);
+        int size = readVarint32();
+        requireBytes(size);
+        final int tag = getFieldNumber();
+        if (tag != 1) {
+            throw InvalidProtocolBufferException.parseFailure();
+        }
     }
 
     private MutableGlob readMessageNoTagCheck(GlobInstantiator instantiator, GlobType type, ProtoBufGlobDeserializer globDeserializer) throws IOException {

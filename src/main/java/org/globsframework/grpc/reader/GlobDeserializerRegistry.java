@@ -46,7 +46,11 @@ public class GlobDeserializerRegistry {
         for (Field field : fields) {
             final Glob annotation = field.getAnnotation(ProtobufField.KEY);
             final int grpcType = annotation.get(ProtobufField.type);
+            final boolean isValueType = annotation.isTrue(ProtobufField.isValue);
             final Integer grpcNumber = annotation.getNotNull(ProtobufField.number);
+            if (attributes[grpcNumber] != null) {
+                throw throwDuplicate(type, field, grpcNumber);
+            }
             attributes[grpcNumber] =
                     switch (field) {
                         case GlobField globField -> {
@@ -65,13 +69,14 @@ public class GlobDeserializerRegistry {
                                 case 5 -> {
                                     yield new ProtoBufGlobVarSInt32ArrayDeserializerImpl(integerArrayField);
                                 }
-                                case 12 -> {
+                                case 0, 12 -> {
                                     yield new ProtoBufGlobFixInt32ArrayDeserializerImpl(integerArrayField);
                                 }
                                 case 13 -> {
                                     yield new ProtoBufGlobVarSFix32ArrayDeserializerImpl(integerArrayField);
                                 }
-                                default -> throw new IllegalStateException("Unexpected value: " + grpcType);
+                                default ->
+                                        throw new IllegalStateException("Unexpected value: " + grpcType + " for " + field.getFullName());
                             }
                         }
                         case LongArrayField longArrayField -> {
@@ -82,19 +87,24 @@ public class GlobDeserializerRegistry {
                                 case 6 -> {
                                     yield new ProtoBufGlobVarSInt64ArrayDeserializerImpl(longArrayField);
                                 }
-                                case 9 -> {
+                                case 0, 9 -> {
                                     yield new ProtoBufGlobFixInt64ArrayDeserializerImpl(longArrayField);
                                 }
                                 case 10 -> {
                                     yield new ProtoBufGlobVarSFix64ArrayDeserializerImpl(longArrayField);
                                 }
-                                default -> throw new IllegalStateException("Unexpected value: " + grpcType);
+                                default ->
+                                        throw new IllegalStateException("Unexpected value: " + grpcType + " for " + field.getFullName());
                             }
                         }
                         case IntegerField integerField -> {
                             switch (grpcType) {
-                                case 1, 3 -> {
-                                    yield new ProtoBufGlobVarInt32DeserializerImpl(integerField);
+                                case 0, 1, 3-> {
+                                    if (isValueType) {
+                                        yield new ProtoBufGlobVarInt32ValueDeserializerImpl(integerField);
+                                    } else {
+                                        yield new ProtoBufGlobVarInt32DeserializerImpl(integerField);
+                                    }
                                 }
                                 case 5 -> {
                                     yield new ProtoBufGlobVarSInt32DeserializerImpl(integerField);
@@ -108,53 +118,75 @@ public class GlobDeserializerRegistry {
                                 case 13 -> {
                                     yield new ProtoBufGlobVarSFix32DeserializerImpl(integerField);
                                 }
-                                default -> throw new IllegalStateException("Unexpected value: " + grpcType);
+                                default ->
+                                        throw new IllegalStateException("Unexpected value: " + grpcType + " for " + field.getFullName());
                             }
                         }
                         case LongField longField -> {
                             switch (grpcType) {
-                                case 2, 4 -> {
-                                    yield new ProtoBufGlobVarInt64DeserializerImpl(longField);
+                                case 0, 2, 4 -> {
+                                    if (isValueType) {
+                                        yield new ProtoBufGlobVarInt64ValueDeserializerImpl(longField);
+                                    } else {
+                                        yield new ProtoBufGlobVarInt64DeserializerImpl(longField);
+                                    }
                                 }
                                 case 6 -> {
                                     yield new ProtoBufGlobVarSInt64DeserializerImpl(longField);
                                 }
                                 case 9 -> {
-                                    yield new ProtoBufGlobFixInt64DeserializerImpl(longField);
+                                        yield new ProtoBufGlobFixInt64DeserializerImpl(longField);
                                 }
                                 case 10 -> {
                                     yield new ProtoBufGlobVarSFix64DeserializerImpl(longField);
                                 }
-                                default -> throw new IllegalStateException("Unexpected value: " + grpcType);
+                                default ->
+                                        throw new IllegalStateException("Unexpected value: " + grpcType + " for " + field.getFullName());
                             }
                         }
                         case BooleanField booleanField -> {
                             if (grpcType == 7 || grpcType == 0) {
-                                yield new ProtoBufGlobBoolFieldDeserializerImpl(booleanField);
+                                if (isValueType) {
+                                    yield new ProtoBufGlobBoolValueFieldDeserializerImpl(booleanField);
+                                } else {
+                                    yield new ProtoBufGlobBoolFieldDeserializerImpl(booleanField);
+                                }
                             } else {
-                                throw new IllegalStateException("Unexpected value: " + grpcType);
+                                throw new IllegalStateException("Unexpected value: " + grpcType + " for " + field.getFullName());
                             }
                         }
                         case BooleanArrayField booleanArrayField -> {
                             if (grpcType == 7 || grpcType == 0) {
                                 yield new ProtoBufGlobBoolArrayFieldDeserializerImpl(booleanArrayField);
                             } else {
-                                throw new IllegalStateException("Unexpected value: " + grpcType);
+                                throw new IllegalStateException("Unexpected value: " + grpcType + " for " + field.getFullName());
                             }
                         }
                         case StringField stringField -> {
-                            yield new ProtoBufGlobStringDeserializerImpl(stringField);
+                            if (grpcType == 0) {
+                                if (isValueType) {
+                                    yield new ProtoBufGlobStringValueDeserializerImpl(stringField);
+                                } else {
+                                    yield new ProtoBufGlobStringDeserializerImpl(stringField);
+                                }
+                            } else {
+                                throw new IllegalStateException("Unexpected value: " + grpcType + " for " + field.getFullName());
+                            }
                         }
                         case StringArrayField stringArrayField -> {
                             yield new ProtoBufGlobStringArrayDeserializerImpl(stringArrayField);
                         }
                         case DoubleField doubleField -> {
                             if (grpcType == 0 || grpcType == 11) {
-                                yield new ProtoBufGlobDoubleFieldDeserializerImpl(doubleField);
+                                if (isValueType) {
+                                    yield new ProtoBufGlobDoubleValueFieldDeserializerImpl(doubleField);
+                                } else {
+                                    yield new ProtoBufGlobDoubleFieldDeserializerImpl(doubleField);
+                                }
                             } else if (grpcType == 14) {
                                 yield new ProtoBufGlobFloatFieldDeserializerImpl(doubleField);
                             } else {
-                                throw new IllegalStateException("Unexpected value: " + grpcType);
+                                throw new IllegalStateException("Unexpected value: " + grpcType + " for " + field.getFullName());
                             }
                         }
                         case DoubleArrayField doubleArrayField -> {
@@ -163,12 +195,21 @@ public class GlobDeserializerRegistry {
                             } else if (grpcType == 14) {
                                 yield new ProtoBufGlobFloatArrayFieldDeserializerImpl(doubleArrayField);
                             } else {
-                                throw new IllegalStateException("Unexpected value: " + grpcType);
+                                throw new IllegalStateException("Unexpected value: " + grpcType + " for " + field.getFullName());
                             }
                         }
-                        default -> throw new IllegalStateException("Unexpected value: " + field);
+                        default ->
+                                throw new IllegalStateException("Unexpected value: " + field + " for " + type.getName());
                     };
         }
+    }
+
+    private static RuntimeException throwDuplicate(GlobType type, Field field, Integer grpcNumber) {
+        return new RuntimeException("On field " + field.getName() + " duplicate grpc id " + grpcNumber +
+                                   " with " + type.streamFields()
+                                           .filter(f -> f.getAnnotation(ProtobufField.KEY)
+                                                   .get(ProtobufField.number).equals(grpcNumber)).findFirst()
+                                           .orElseThrow().getFullName());
     }
 
 }

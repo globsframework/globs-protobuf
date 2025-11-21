@@ -451,6 +451,13 @@ public abstract class BinaryWriter implements Writer {
         return n;
     }
 
+    public void writeHeaderValue(int fieldNumber, int indexEnd) {
+        requireSpace(MAX_VARINT32_SIZE * 2);
+        int length = getTotalBytesWritten() - indexEnd;
+        writeVarint32(length);
+        writeTag(fieldNumber, WIRETYPE_LENGTH_DELIMITED);
+    }
+
     /**
      * Writer that uses safe operations on target array.
      */
