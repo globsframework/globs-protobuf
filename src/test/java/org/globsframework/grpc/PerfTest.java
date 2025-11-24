@@ -61,7 +61,7 @@ public class PerfTest {
     @Benchmark
     public byte[] testGlobWrite() throws IOException {
         Glob glob = GrpcBinWriterImplTest.buildGlobRequest();
-        final BufferAllocator alloc = new BufferAllocator();
+        final BufferAllocator alloc = BufferAllocator.create();
         final BinaryWriter writer = BinaryWriter.newHeapInstance(alloc, 1024);
         grpcBinWriter.write(glob, writer);
         return writer.complete().element().array();

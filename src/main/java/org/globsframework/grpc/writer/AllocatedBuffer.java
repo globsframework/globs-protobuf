@@ -40,4 +40,20 @@ public class AllocatedBuffer {
     public int remaining() {
         return length - position;
     }
+
+    public int read(byte[] b, int off, int len) {
+        if (len > remaining()) {
+            len = remaining();
+        }
+        System.arraycopy(bytes, position, b, off, len);
+        position += len;
+        return len;
+    }
+
+    int read() {
+        if (position >= length) {
+            return -1;
+        }
+        return bytes[position++] & 0xFF;
+    }
 };

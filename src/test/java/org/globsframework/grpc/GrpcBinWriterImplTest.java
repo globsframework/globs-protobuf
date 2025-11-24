@@ -95,7 +95,7 @@ public class GrpcBinWriterImplTest {
         Assertions.assertTrue(data.isTrue(EchoRequestType.gbValue));
 
         GrpcBinWriter protobufWriter = new ProtobufWriterImpl(new GlobSerializerRegistry());
-        final BufferAllocator alloc = new BufferAllocator();
+        final BufferAllocator alloc = BufferAllocator.create();
         final BinaryWriter writer = BinaryWriter.newHeapInstance(alloc);
         protobufWriter.write(data, writer);
         final Queue<AllocatedBuffer> complete = writer.complete();
@@ -384,7 +384,7 @@ public class GrpcBinWriterImplTest {
         EchoRequest echoRequest = GrpcBinWriterImplTest.buildGrpRequest();
         ProtobufWriterImpl grpcBinWriter = new ProtobufWriterImpl(new GlobSerializerRegistry());
         echoRequest.writeTo(new ByteArrayOutputStream());
-        grpcBinWriter.write(glob, BinaryWriter.newHeapInstance(new BufferAllocator(), 1024));
+        grpcBinWriter.write(glob, BinaryWriter.newHeapInstance(BufferAllocator.create(), 1024));
     }
 
     @Test

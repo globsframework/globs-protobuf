@@ -1152,19 +1152,19 @@ public class SafeHeapReader {
     static class InvalidProtocolBufferException {
 
         public static IOException parseFailure() {
-            return null;
+            return new IOException("parseFailure");
         }
 
         public static IOException truncatedMessage() {
-            return null;
+            return new  IOException("truncatedMessage");
         }
 
         public static IOException invalidWireType() {
-            return null;
+            return new IOException("invalidWireType");
         }
 
         public static IOException malformedVarint() {
-            return null;
+            return new IOException("malformedVarint");
         }
     }
 
