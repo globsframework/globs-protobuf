@@ -12,9 +12,7 @@ package org.globsframework.grpc.writer;
 import org.globsframework.core.model.Glob;
 
 import java.io.IOException;
-import java.util.ArrayDeque;
 import java.util.List;
-import java.util.Queue;
 
 import static org.globsframework.grpc.writer.WireFormat.*;
 
@@ -35,8 +33,6 @@ public abstract class BinaryWriter implements Writer {
     public static final int DEFAULT_CHUNK_SIZE = 4096;
     private final BufferAllocator alloc;
     private final int chunkSize;
-
-    final ArrayDeque<AllocatedBuffer> buffers = new ArrayDeque<AllocatedBuffer>(4);
     int totalDoneBytes;
 
 
@@ -78,9 +74,8 @@ public abstract class BinaryWriter implements Writer {
      * <p>After calling this method, the writer can not be reused. Create a new writer for future
      * writes.
      */
-    public final Queue<AllocatedBuffer> complete() {
-        finishCurrentBuffer();
-        return buffers;
+    public final AllocatedBuffer complete() {
+        return finishCurrentBuffer();
     }
 
     public final void writeSFixed32(int fieldNumber, int value) throws IOException {
@@ -396,7 +391,7 @@ public abstract class BinaryWriter implements Writer {
 
     abstract void requireSpace(int size);
 
-    abstract void finishCurrentBuffer();
+    abstract AllocatedBuffer finishCurrentBuffer();
 
     abstract void writeTag(int fieldNumber, int wireType);
 
@@ -476,14 +471,16 @@ public abstract class BinaryWriter implements Writer {
         }
 
 
-        void finishCurrentBuffer() {
-            if (allocatedBuffer != null) {
+        AllocatedBuffer finishCurrentBuffer() {
+            final AllocatedBuffer current = allocatedBuffer;
+            if (current != null) {
                 totalDoneBytes += bytesWrittenToCurrentBuffer();
-                allocatedBuffer.position((pos - allocatedBuffer.arrayOffset()) + 1);
+                allocatedBuffer.position(pos + 1);
                 allocatedBuffer = null;
                 pos = 0;
                 limitMinusOne = 0;
             }
+            return current;
         }
 
         private void nextBuffer() {
@@ -495,16 +492,13 @@ public abstract class BinaryWriter implements Writer {
         }
 
         private void nextBuffer(AllocatedBuffer allocatedBuffer) {
-
-            finishCurrentBuffer();
-
-            buffers.addFirst(allocatedBuffer);
+            final AllocatedBuffer completBuffer = finishCurrentBuffer();
+            allocatedBuffer.setNext(completBuffer);
 
             this.allocatedBuffer = allocatedBuffer;
             this.buffer = allocatedBuffer.array();
-            int arrayOffset = allocatedBuffer.arrayOffset();
-            this.limit = arrayOffset + allocatedBuffer.limit();
-            this.offset = arrayOffset + allocatedBuffer.position();
+            this.limit = allocatedBuffer.limit();
+            this.offset = allocatedBuffer.position();
             this.offsetMinusOne = offset - 1;
             this.limitMinusOne = limit - 1;
             this.pos = limitMinusOne;

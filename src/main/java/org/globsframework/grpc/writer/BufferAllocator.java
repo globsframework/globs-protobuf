@@ -10,7 +10,7 @@ public interface BufferAllocator {
     class BasicAllocator implements BufferAllocator {
         @Override
         public AllocatedBuffer allocateHeapBuffer(int capacity) {
-            return new AllocatedBuffer(new byte[capacity], 0, capacity);
+            return new AllocatedBuffer(new byte[capacity], capacity);
         }
     }
 }

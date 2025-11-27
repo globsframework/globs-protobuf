@@ -64,7 +64,7 @@ public class PerfTest {
         final BufferAllocator alloc = BufferAllocator.create();
         final BinaryWriter writer = BinaryWriter.newHeapInstance(alloc, 1024);
         grpcBinWriter.write(glob, writer);
-        return writer.complete().element().array();
+        return writer.complete().array();
     }
 
     static {

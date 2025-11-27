@@ -12,13 +12,17 @@ import java.util.Map;
 public class GlobSerializerRegistry {
     private final Map<GlobType, ProtoBufGlobSerializerImpl> serializers = new HashMap<>();
 
-    // only one thread at a time can create a deserializer due to the getDeserializer method that build desirializer
+    // only one thread at a time can create a deserializer due to the getDeserializer method that build deserializer
     // in two phases to managed recursion of type
     public synchronized ProtoBufGlobSerializer getGlobSerializer(GlobType type) {
         final ProtoBufGlobSerializerImpl protoBufGlobSerializer = serializers.get(type);
         if (protoBufGlobSerializer != null) {
             return protoBufGlobSerializer;
         }
+        return create(type);
+    }
+
+    private ProtoBufGlobSerializerImpl create(GlobType type) {
         final ProtoBufGlobSerializer[] attributes = new ProtoBufGlobSerializer[type.getFieldCount()];
         final ProtoBufGlobSerializerImpl newSerializer = new ProtoBufGlobSerializerImpl(type, attributes);
         serializers.put(type, newSerializer);

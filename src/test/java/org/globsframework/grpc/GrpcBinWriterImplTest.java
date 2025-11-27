@@ -18,6 +18,8 @@ import org.globsframework.grpc.writer.*;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import javax.naming.BinaryRefAddr;
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -98,9 +100,8 @@ public class GrpcBinWriterImplTest {
         final BufferAllocator alloc = BufferAllocator.create();
         final BinaryWriter writer = BinaryWriter.newHeapInstance(alloc);
         protobufWriter.write(data, writer);
-        final Queue<AllocatedBuffer> complete = writer.complete();
+        final AllocatedBuffer element = writer.complete();
         EchoRequest.Builder builderRead = EchoRequest.newBuilder();
-        final AllocatedBuffer element = complete.element();
         builderRead.mergeFrom(element.array(), element.position(), element.limit() - element.position());
         final EchoRequest readData = builderRead.build();
         Assertions.assertEquals(1, readData.getI32());
@@ -384,7 +385,41 @@ public class GrpcBinWriterImplTest {
         EchoRequest echoRequest = GrpcBinWriterImplTest.buildGrpRequest();
         ProtobufWriterImpl grpcBinWriter = new ProtobufWriterImpl(new GlobSerializerRegistry());
         echoRequest.writeTo(new ByteArrayOutputStream());
-        grpcBinWriter.write(glob, BinaryWriter.newHeapInstance(BufferAllocator.create(), 1024));
+        grpcBinWriter.write(glob, BinaryWriter.newHeapInstance(BufferAllocator.create(), 102));
+    }
+
+
+    @Test
+    void radWriteManyTime() throws IOException {
+        Glob glob = GrpcBinWriterImplTest.buildGlobRequest();
+        EchoRequest echoRequest = GrpcBinWriterImplTest.buildGrpRequest();
+        ProtobufWriterImpl grpcBinWriter = new ProtobufWriterImpl(new GlobSerializerRegistry());
+        final ByteArrayOutputStream output = new ByteArrayOutputStream();
+        final BinaryWriter writer = BinaryWriter.newHeapInstance(BufferAllocator.create(), 200);
+        for (int i = 0; i < 1000; i++) {
+            echoRequest.writeTo(output);
+            grpcBinWriter.write(glob, writer);
+        }
+        AllocatedBuffer complete = writer.complete();
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        while (complete != null) {
+            outputStream.write(complete.array(), complete.position(), complete.remaining());
+            complete = complete.getNext();
+        }
+
+        ProtobufReaderImpl protobufReader = new ProtobufReaderImpl(GlobType::instantiate);
+        final ByteArrayInputStream input = new ByteArrayInputStream(outputStream.toByteArray());
+        final SafeHeapReader reader = new SafeHeapReader(output.toByteArray(), 0, output.size());
+        /*
+           It read all the data until the end even if there is many time the same object.
+         */
+
+        EchoRequest req = EchoRequest.parseFrom(input);
+        Assertions.assertNotNull(req);
+        Assertions.assertEquals(341, req.getFi32());
+        final Glob read = protobufReader.read(EchoRequestType.TYPE, reader);
+        Assertions.assertNotNull(read);
+        Assertions.assertEquals(341, read.get(EchoRequestType.fi32));
     }
 
     @Test
@@ -427,7 +462,7 @@ public class GrpcBinWriterImplTest {
         final BufferAllocator alloc = new BufferAllocator(){
             @Override
             public AllocatedBuffer allocateHeapBuffer(int capacity) {
-                return new AllocatedBuffer(bytes, 0, capacity);
+                return new AllocatedBuffer(bytes, capacity);
             }
         };
         AllocatedBuffer element = null;
@@ -437,7 +472,7 @@ public class GrpcBinWriterImplTest {
                 Glob glob = GrpcBinWriterImplTest.buildGlobRequest();
                 final BinaryWriter writer = BinaryWriter.newHeapInstance(alloc, 1024);
                 globSerializer.write(glob, writer);
-                element = writer.complete().element();
+                element = writer.complete();
                 Assertions.assertNotNull(element.array());
             }
             System.out.println("glob write " + nanoChrono.getElapsedTimeInMS());

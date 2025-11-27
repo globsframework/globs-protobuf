@@ -1,23 +1,18 @@
 package org.globsframework.grpc.writer;
 
 public class AllocatedBuffer {
-    final int length;
+    private final int length;
     private int position;
-    private byte[] bytes;
-    private int offset;
+    private final byte[] bytes;
+    private AllocatedBuffer next;
 
-    public AllocatedBuffer(byte[] bytes, int offset, int length) {
+    public AllocatedBuffer(byte[] bytes, int length) {
         this.bytes = bytes;
-        this.offset = offset;
         this.length = length;
     }
 
     public byte[] array() {
         return bytes;
-    }
-
-    public int arrayOffset() {
-        return offset;
     }
 
     public int position() {
@@ -50,10 +45,24 @@ public class AllocatedBuffer {
         return len;
     }
 
-    int read() {
+    public int read() {
         if (position >= length) {
             return -1;
         }
         return bytes[position++] & 0xFF;
     }
+
+    public void reset() {
+        position = 0;
+        this.next = null;
+    }
+
+    public void setNext(AllocatedBuffer next) {
+        this.next = next;
+    }
+
+    public AllocatedBuffer getNext() {
+        return next;
+    }
+
 };

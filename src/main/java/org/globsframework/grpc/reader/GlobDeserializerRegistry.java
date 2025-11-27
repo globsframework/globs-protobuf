@@ -21,9 +21,14 @@ public class GlobDeserializerRegistry {
     // only one thread at a time can create a deserializer due to the getDeserializer method that build desirializer
     // in two phases to managed recursion of type
     public synchronized ProtoBufGlobDeserializer getDeserializer(GlobType type) {
-        if (deserializers.containsKey(type)) {
-            return deserializers.get(type);
+        final ProtoBufGlobDeserializerImpl protoBufGlobDeserializer = deserializers.get(type);
+        if (protoBufGlobDeserializer != null) {
+            return protoBufGlobDeserializer;
         }
+        return create(type);
+    }
+
+    private ProtoBufGlobDeserializerImpl create(GlobType type) {
         ProtoBufGlobDeserializer[] attributes = new ProtoBufGlobDeserializer[computeSize(type)];
         final ProtoBufGlobDeserializerImpl value = new ProtoBufGlobDeserializerImpl(attributes);
         deserializers.put(type, value);
