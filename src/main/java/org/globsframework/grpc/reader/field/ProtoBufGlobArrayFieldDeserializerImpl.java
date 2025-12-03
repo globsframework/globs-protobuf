@@ -20,7 +20,7 @@ public class ProtoBufGlobArrayFieldDeserializerImpl implements ProtoBufGlobDeser
 
     public ProtoBufGlobArrayFieldDeserializerImpl(GlobArrayField field, ProtoBufGlobDeserializer deserializer,
                                                   GlobInstantiator instantiator) {
-        this.type = field.getGlobType();
+        this.type = field.getTargetType();
         this.deserializer = deserializer;
         this.instantiator = instantiator;
         setAccessor = field.getGlobType().getSetAccessor(field);
