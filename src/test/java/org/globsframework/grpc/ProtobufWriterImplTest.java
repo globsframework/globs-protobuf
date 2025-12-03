@@ -18,15 +18,14 @@ import org.globsframework.grpc.writer.*;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-import javax.naming.BinaryRefAddr;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.HashMap;
 import java.util.List;
-import java.util.Queue;
 
-public class GrpcBinWriterImplTest {
+public class ProtobufWriterImplTest {
 
     @Test
     void name() throws IOException {
@@ -96,7 +95,7 @@ public class GrpcBinWriterImplTest {
         Assertions.assertEquals(324552L, data.get(EchoRequestType.giu64Value));
         Assertions.assertTrue(data.isTrue(EchoRequestType.gbValue));
 
-        GrpcBinWriter protobufWriter = new ProtobufWriterImpl(new GlobSerializerRegistry());
+        ProtobufWriter protobufWriter = ProtobufWriter.create();
         final BufferAllocator alloc = BufferAllocator.create();
         final BinaryWriter writer = BinaryWriter.newHeapInstance(alloc);
         protobufWriter.write(data, writer);
@@ -381,9 +380,9 @@ public class GrpcBinWriterImplTest {
 
     @Test
     void basic() throws IOException {
-        Glob glob = GrpcBinWriterImplTest.buildGlobRequest();
-        EchoRequest echoRequest = GrpcBinWriterImplTest.buildGrpRequest();
-        ProtobufWriterImpl grpcBinWriter = new ProtobufWriterImpl(new GlobSerializerRegistry());
+        Glob glob = ProtobufWriterImplTest.buildGlobRequest();
+        EchoRequest echoRequest = ProtobufWriterImplTest.buildGrpRequest();
+        ProtobufWriter grpcBinWriter = ProtobufWriter.create();
         echoRequest.writeTo(new ByteArrayOutputStream());
         grpcBinWriter.write(glob, BinaryWriter.newHeapInstance(BufferAllocator.create(), 102));
     }
@@ -391,9 +390,9 @@ public class GrpcBinWriterImplTest {
 
     @Test
     void radWriteManyTime() throws IOException {
-        Glob glob = GrpcBinWriterImplTest.buildGlobRequest();
-        EchoRequest echoRequest = GrpcBinWriterImplTest.buildGrpRequest();
-        ProtobufWriterImpl grpcBinWriter = new ProtobufWriterImpl(new GlobSerializerRegistry());
+        Glob glob = ProtobufWriterImplTest.buildGlobRequest();
+        EchoRequest echoRequest = ProtobufWriterImplTest.buildGrpRequest();
+        ProtobufWriter grpcBinWriter = ProtobufWriter.create();
         final ByteArrayOutputStream output = new ByteArrayOutputStream();
         final BinaryWriter writer = BinaryWriter.newHeapInstance(BufferAllocator.create(), 200);
         for (int i = 0; i < 1000; i++) {
@@ -428,7 +427,7 @@ public class GrpcBinWriterImplTest {
         {
             NanoChrono nanoChrono = NanoChrono.start();
             for (int i = 0; i < 1_000_000; i++) {
-                EchoRequest echoRequest = GrpcBinWriterImplTest.buildGrpRequest();
+                EchoRequest echoRequest = ProtobufWriterImplTest.buildGrpRequest();
                 output.reset();
                 echoRequest.writeTo(output);
                 Assertions.assertNotNull(output.toByteArray());
@@ -447,17 +446,16 @@ public class GrpcBinWriterImplTest {
 
     }
 
-    final public ProtobufWriterImpl grpcBinWriter;
-    final GlobSerializerRegistry registry;
+    final public ProtobufWriter grpcBinWriter;
 
     {
-        registry = new GlobSerializerRegistry();
-        grpcBinWriter = new ProtobufWriterImpl(registry);
+        grpcBinWriter = ProtobufWriter.Builder.init()
+                .add(EchoRequestType.TYPE).build();
     }
 
     @Test
     public void testGlob() throws IOException {
-        final ProtoBufGlobSerializer globSerializer = registry.getGlobSerializer(EchoRequestType.TYPE);
+        final ProtobufWriter.GlobWriter globSerializer = grpcBinWriter.getWriter(EchoRequestType.TYPE);
         final byte[] bytes = new byte[1024];
         final BufferAllocator alloc = new BufferAllocator(){
             @Override
@@ -469,7 +467,7 @@ public class GrpcBinWriterImplTest {
         {
             NanoChrono nanoChrono = NanoChrono.start();
             for (int i = 0; i < 1_000_000; i++) {
-                Glob glob = GrpcBinWriterImplTest.buildGlobRequest();
+                Glob glob = ProtobufWriterImplTest.buildGlobRequest();
                 final BinaryWriter writer = BinaryWriter.newHeapInstance(alloc, 1024);
                 globSerializer.write(glob, writer);
                 element = writer.complete();

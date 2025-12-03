@@ -6,25 +6,29 @@ import org.globsframework.core.model.Glob;
 import org.globsframework.core.model.GlobInstantiator;
 import org.globsframework.grpc.ProtobufField;
 import org.globsframework.grpc.reader.field.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import java.util.HashMap;
 import java.util.Map;
 
 public class GlobDeserializerRegistry {
-    private final Map<GlobType, ProtoBufGlobDeserializerImpl> deserializers = new HashMap<>();
+    private static final Logger log = LoggerFactory.getLogger(GlobDeserializerRegistry.class);
+    private final Map<GlobType, ProtoBufGlobDeserializer> deserializers;
     private final GlobInstantiator instantiator;
 
-    public GlobDeserializerRegistry(GlobInstantiator instantiator) {
+    public GlobDeserializerRegistry(GlobInstantiator instantiator, Map<GlobType, ProtoBufGlobDeserializer> deserializers) {
         this.instantiator = instantiator;
+        this.deserializers = deserializers;
     }
 
     // only one thread at a time can create a deserializer due to the getDeserializer method that build desirializer
     // in two phases to managed recursion of type
     public synchronized ProtoBufGlobDeserializer getDeserializer(GlobType type) {
-        final ProtoBufGlobDeserializerImpl protoBufGlobDeserializer = deserializers.get(type);
+        final ProtoBufGlobDeserializer protoBufGlobDeserializer = deserializers.get(type);
         if (protoBufGlobDeserializer != null) {
             return protoBufGlobDeserializer;
         }
+        log.info("Creating deserializer for {}", type.getName());
         return create(type);
     }
 
@@ -104,7 +108,7 @@ public class GlobDeserializerRegistry {
                         }
                         case IntegerField integerField -> {
                             switch (grpcType) {
-                                case 0, 1, 3-> {
+                                case 0, 1, 3 -> {
                                     if (isValueType) {
                                         yield new ProtoBufGlobVarInt32ValueDeserializerImpl(integerField);
                                     } else {
@@ -140,7 +144,7 @@ public class GlobDeserializerRegistry {
                                     yield new ProtoBufGlobVarSInt64DeserializerImpl(longField);
                                 }
                                 case 9 -> {
-                                        yield new ProtoBufGlobFixInt64DeserializerImpl(longField);
+                                    yield new ProtoBufGlobFixInt64DeserializerImpl(longField);
                                 }
                                 case 10 -> {
                                     yield new ProtoBufGlobVarSFix64DeserializerImpl(longField);
@@ -211,10 +215,10 @@ public class GlobDeserializerRegistry {
 
     private static RuntimeException throwDuplicate(GlobType type, Field field, Integer grpcNumber) {
         return new RuntimeException("On field " + field.getName() + " duplicate grpc id " + grpcNumber +
-                                   " with " + type.streamFields()
-                                           .filter(f -> f.getAnnotation(ProtobufField.KEY)
-                                                   .get(ProtobufField.number).equals(grpcNumber)).findFirst()
-                                           .orElseThrow().getFullName());
+                                    " with " + type.streamFields()
+                                            .filter(f -> f.getAnnotation(ProtobufField.KEY)
+                                                    .get(ProtobufField.number).equals(grpcNumber)).findFirst()
+                                            .orElseThrow().getFullName());
     }
 
 }

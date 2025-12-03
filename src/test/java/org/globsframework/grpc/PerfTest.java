@@ -6,15 +6,14 @@ import org.globsframework.core.metamodel.GlobType;
 import org.globsframework.core.model.Glob;
 import org.globsframework.core.model.MutableGlob;
 import org.globsframework.grpc.echo.EchoRequest;
-import org.globsframework.grpc.reader.GlobDeserializerRegistry;
-import org.globsframework.grpc.reader.ProtoBufGlobDeserializer;
-import org.globsframework.grpc.reader.SafeHeapReader;
+import org.globsframework.grpc.reader.*;
 import org.globsframework.grpc.writer.*;
 import org.openjdk.jmh.annotations.*;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.HashMap;
 
 @BenchmarkMode(Mode.Throughput)
 @Warmup(iterations = 2, time = 3)
@@ -22,20 +21,22 @@ import java.nio.ByteBuffer;
 @Fork(2)
 @State(Scope.Thread)
 public class PerfTest {
-    private GrpcBinWriter grpcBinWriter;
+    private ProtobufWriter protobufWriter;
     private byte[] protobufBuffer;
-    private ProtoBufGlobDeserializer deserializer;
+    private ProtobufReader.GlobReader deserializer;
 
     @Setup
     public void setup() throws IOException {
-        grpcBinWriter = new ProtobufWriterImpl(new GlobSerializerRegistry());
-        EchoRequest echoRequest = GrpcBinWriterImplTest.buildGrpRequest();
+        protobufWriter = ProtobufWriter.Builder.init().add(ProtobufWriterImplTest.EchoRequestType.TYPE).build();
+        EchoRequest echoRequest = ProtobufWriterImplTest.buildGrpRequest();
         final ByteArrayOutputStream output = new ByteArrayOutputStream();
         echoRequest.writeTo(output);
         protobufBuffer = output.toByteArray();
 
-        GlobDeserializerRegistry globDeserializerRegistry = new GlobDeserializerRegistry(GlobType::instantiate);
-        deserializer = globDeserializerRegistry.getDeserializer(GrpcBinWriterImplTest.EchoRequestType.TYPE);
+        final ProtobufReader protobufReader = ProtobufReader.Builder.init(GlobType::instantiate)
+                .add(ProtobufWriterImplTest.EchoRequestType.TYPE)
+                .build();
+        deserializer = protobufReader.getReader(ProtobufWriterImplTest.EchoRequestType.TYPE);
     }
 
     @Benchmark
@@ -45,14 +46,12 @@ public class PerfTest {
 
     @Benchmark
     public Glob testGlobRead() throws IOException {
-        final MutableGlob instantiate = GrpcBinWriterImplTest.EchoRequestType.TYPE.instantiate();
-        deserializer.read(instantiate, new SafeHeapReader(ByteBuffer.wrap(protobufBuffer)) );
-        return instantiate;
+        return deserializer.read(ProtobufWriterImplTest.EchoRequestType.TYPE, new SafeHeapReader(ByteBuffer.wrap(protobufBuffer)) );
     }
 
     @Benchmark
     public byte[] testProtobufWrite() throws IOException {
-        EchoRequest echoRequest = GrpcBinWriterImplTest.buildGrpRequest();
+        EchoRequest echoRequest = ProtobufWriterImplTest.buildGrpRequest();
         final ByteArrayOutputStream output = new ByteArrayOutputStream();
         echoRequest.writeTo(output);
         return output.toByteArray();
@@ -60,10 +59,10 @@ public class PerfTest {
 
     @Benchmark
     public byte[] testGlobWrite() throws IOException {
-        Glob glob = GrpcBinWriterImplTest.buildGlobRequest();
+        Glob glob = ProtobufWriterImplTest.buildGlobRequest();
         final BufferAllocator alloc = BufferAllocator.create();
         final BinaryWriter writer = BinaryWriter.newHeapInstance(alloc, 1024);
-        grpcBinWriter.write(glob, writer);
+        protobufWriter.write(glob, writer);
         return writer.complete().array();
     }
 

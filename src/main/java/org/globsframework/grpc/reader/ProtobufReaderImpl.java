@@ -8,27 +8,30 @@ import org.globsframework.core.model.MutableGlob;
 import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Function;
 
-public class ProtobufReaderImpl implements ProtobufReader, Function<GlobType, ProtoBufGlobDeserializer> {
-    private final Map<GlobType, ProtoBufGlobDeserializer> serializers = new ConcurrentHashMap<>();
+public class ProtobufReaderImpl implements ProtobufReader {
+    private final Map<GlobType, ProtoBufGlobDeserializer> preInit;
     private final GlobInstantiator instantiator;
     private final GlobDeserializerRegistry globDeserializerRegistry;
 
-    public ProtobufReaderImpl(GlobInstantiator instantiator, GlobDeserializerRegistry globDeserializerRegistry) {
+    public ProtobufReaderImpl(GlobInstantiator instantiator,
+                              GlobDeserializerRegistry globDeserializerRegistry, Map<GlobType, ProtoBufGlobDeserializer> preInit) {
         this.instantiator = instantiator;
         this.globDeserializerRegistry = globDeserializerRegistry;
+        this.preInit = preInit;
     }
 
     public ProtobufReaderImpl(GlobInstantiator instantiator) {
         this.instantiator = instantiator;
-        globDeserializerRegistry = new GlobDeserializerRegistry(instantiator);
+        preInit = new ConcurrentHashMap<>();
+        globDeserializerRegistry = new GlobDeserializerRegistry(instantiator, preInit);
     }
 
-
     public Glob read(GlobType type, SafeHeapReader reader) throws IOException {
-        final ProtoBufGlobDeserializer protoBufGlobDeserializer =
-                serializers.computeIfAbsent(type, this);
+        ProtoBufGlobDeserializer protoBufGlobDeserializer = preInit.get(type);
+        if (protoBufGlobDeserializer == null) {
+            protoBufGlobDeserializer = globDeserializerRegistry.getDeserializer(type);
+        }
 
         final MutableGlob mutableGlob = instantiator.newGlob(type);
 
@@ -36,7 +39,30 @@ public class ProtobufReaderImpl implements ProtobufReader, Function<GlobType, Pr
         return mutableGlob;
     }
 
-    public ProtoBufGlobDeserializer apply(GlobType type1) {
-        return globDeserializerRegistry.getDeserializer(type1);
+    @Override
+    public GlobReader getReader(GlobType type) {
+        ProtoBufGlobDeserializer protoBufGlobDeserializer = preInit.get(type);
+        if (protoBufGlobDeserializer == null) {
+            protoBufGlobDeserializer = globDeserializerRegistry.getDeserializer(type);
+        }
+        return new GlobReaderImpl(protoBufGlobDeserializer, instantiator);
+    }
+
+    private static class GlobReaderImpl implements GlobReader {
+        private final ProtoBufGlobDeserializer protoBufGlobDeserializer;
+        private final GlobInstantiator instantiator;
+
+        public GlobReaderImpl(ProtoBufGlobDeserializer protoBufGlobDeserializer, GlobInstantiator instantiator) {
+            this.protoBufGlobDeserializer = protoBufGlobDeserializer;
+            this.instantiator = instantiator;
+        }
+
+        @Override
+        public Glob read(GlobType type, SafeHeapReader inputStream) throws IOException {
+            final MutableGlob instantiate = instantiator.newGlob(type);
+            protoBufGlobDeserializer.read(instantiate, inputStream);
+            return instantiate;
+
+        }
     }
 }

@@ -5,20 +5,27 @@ import org.globsframework.core.metamodel.fields.*;
 import org.globsframework.core.model.Glob;
 import org.globsframework.grpc.ProtobufField;
 import org.globsframework.grpc.writer.field.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import java.util.HashMap;
 import java.util.Map;
 
 public class GlobSerializerRegistry {
-    private final Map<GlobType, ProtoBufGlobSerializerImpl> serializers = new HashMap<>();
+    private static final Logger log = LoggerFactory.getLogger(GlobSerializerRegistry.class);
+    private final Map<GlobType, ProtoBufGlobSerializer> serializers;
+
+    public GlobSerializerRegistry(Map<GlobType, ProtoBufGlobSerializer> serializers) {
+        this.serializers = serializers;
+    }
 
     // only one thread at a time can create a deserializer due to the getDeserializer method that build deserializer
     // in two phases to managed recursion of type
     public synchronized ProtoBufGlobSerializer getGlobSerializer(GlobType type) {
-        final ProtoBufGlobSerializerImpl protoBufGlobSerializer = serializers.get(type);
+        final ProtoBufGlobSerializer protoBufGlobSerializer = serializers.get(type);
         if (protoBufGlobSerializer != null) {
             return protoBufGlobSerializer;
         }
+        log.info("Creating serializer for {}", type.getName());
         return create(type);
     }
 
@@ -80,8 +87,7 @@ public class GlobSerializerRegistry {
                         case 0, 1, 3 -> {
                             if (isValueType) {
                                 yield new ProtoBufVarInt32ValueSerializerImpl(integerField, grpcNumber);
-                            }
-                            else {
+                            } else {
                                 yield new ProtoBufVarInt32SerializerImpl(integerField, grpcNumber);
                             }
                         }
@@ -106,8 +112,7 @@ public class GlobSerializerRegistry {
                         case 0, 2, 4 -> {
                             if (isValueType) {
                                 yield new ProtoBufVarIntValue64SerializerImpl(longField, grpcNumber);
-                            }
-                            else{
+                            } else {
                                 yield new ProtoBufVarInt64SerializerImpl(longField, grpcNumber);
                             }
                         }
