@@ -175,18 +175,20 @@ public class SafeHeapReader {
         return readMessageNoTagCheck(instantiator, type, globDeserializer);
     }
 
-    public boolean readValueHeader() throws IOException {
+    public int readValueHeader() throws IOException {
         requireWireType(WIRETYPE_LENGTH_DELIMITED);
         int size = readVarint32();
         if (size == 0) {
-            return false;
+            return -1;
         }
         requireBytes(size);
-        final int tag = getFieldNumber();
-        if (tag != 1) {
-            throw InvalidProtocolBufferException.parseFailure();
-        }
-        return true;
+        int previousLimit = limit;
+        limit = pos + size;
+        return previousLimit;
+    }
+
+    public void endValueHeader(int previousLimit) throws IOException {
+        limit = previousLimit;
     }
 
     private MutableGlob readMessageNoTagCheck(GlobInstantiator instantiator, GlobType type, ProtoBufGlobDeserializer globDeserializer) throws IOException {
@@ -1149,7 +1151,7 @@ public class SafeHeapReader {
         endGroupTag = prevEndGroupTag;
     }
 
-    static class InvalidProtocolBufferException {
+    public static class InvalidProtocolBufferException {
 
         public static IOException parseFailure() {
             return new IOException("parseFailure");

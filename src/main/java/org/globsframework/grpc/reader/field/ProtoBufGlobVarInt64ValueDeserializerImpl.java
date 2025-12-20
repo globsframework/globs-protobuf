@@ -17,8 +17,17 @@ public class ProtoBufGlobVarInt64ValueDeserializerImpl implements ProtoBufGlobDe
 
     @Override
     public void read(MutableGlob mutableGlob, SafeHeapReader reader) throws IOException {
-        if (reader.readValueHeader()) {
-            setAccessor.setNative(mutableGlob, reader.readInt64());
+        final int previousLimit = reader.readValueHeader();
+        if (previousLimit != -1) {
+            final int tag = reader.getFieldNumber();
+            long value = 0;
+            if (tag == 1) {
+                value = reader.readInt64();
+            } else if (tag != Integer.MAX_VALUE) {
+                throw SafeHeapReader.InvalidProtocolBufferException.parseFailure();
+            }
+            setAccessor.setNative(mutableGlob, value);
+            reader.endValueHeader(previousLimit);
         }
     }
 }

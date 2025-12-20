@@ -125,6 +125,9 @@ public class GlobSerializerRegistry {
                         case 10 -> {
                             yield new ProtoBufSFixInt64SerializerImpl(longField, grpcNumber);
                         }
+                        case 15 -> {
+                            yield new ProtoBufLongTimestampSerializerImpl(longField, grpcNumber);
+                        }
                         default ->
                                 throw new IllegalStateException("Unexpected value: " + grpcType + " for " + field.getFullName());
                     }

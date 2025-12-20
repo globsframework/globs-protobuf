@@ -1,6 +1,7 @@
 syntax = "proto3";
 
 import "google/protobuf/wrappers.proto";
+import "google/protobuf/timestamp.proto";
 
 option java_multiple_files = true;
 option java_package = "org.globsframework.grpc.echo";
@@ -62,6 +63,11 @@ message EchoRequest {
 
   google.protobuf.UInt32Value guint32Value = 37;
   google.protobuf.UInt64Value guint64Value = 38;
+
+  optional int32 io32 = 39;
+  optional TestEnum optEnumValue = 40;
+
+  google.protobuf.Timestamp timestamp = 41;
 
 }
 

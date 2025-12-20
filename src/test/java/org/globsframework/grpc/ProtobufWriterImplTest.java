@@ -14,7 +14,10 @@ import org.globsframework.grpc.echo.TestEnum;
 import org.globsframework.grpc.reader.ProtobufReader;
 import org.globsframework.grpc.reader.ProtobufReaderImpl;
 import org.globsframework.grpc.reader.SafeHeapReader;
-import org.globsframework.grpc.writer.*;
+import org.globsframework.grpc.writer.AllocatedBuffer;
+import org.globsframework.grpc.writer.BinaryWriter;
+import org.globsframework.grpc.writer.BufferAllocator;
+import org.globsframework.grpc.writer.ProtobufWriter;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -22,13 +25,12 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.HashMap;
 import java.util.List;
 
 public class ProtobufWriterImplTest {
 
     @Test
-    void name() throws IOException {
+    void allFieldType() throws IOException {
 
         final EchoRequest echoRequest = buildGrpRequest();
 
@@ -68,6 +70,7 @@ public class ProtobufWriterImplTest {
         final Glob children = data.get(EchoRequestType.children);
         Assertions.assertEquals(10, children.get(EchoRequestType.i32));
         Assertions.assertEquals(324, children.get(EchoRequestType.si32));
+        Assertions.assertFalse(children.isSet(EchoRequestType.io32));
 
         final Glob[] chs = data.get(EchoRequestType.child);
         Assertions.assertEquals(2, chs.length);
@@ -135,6 +138,7 @@ public class ProtobufWriterImplTest {
         Assertions.assertNotNull(ch);
         Assertions.assertEquals(10, ch.getI32());
         Assertions.assertEquals(324, ch.getSi32());
+        Assertions.assertFalse(ch.hasIo32());
 
         final List<EchoRequest> childList = readData.getChildList();
         Assertions.assertEquals(2, childList.size());
@@ -159,7 +163,12 @@ public class ProtobufWriterImplTest {
         Assertions.assertEquals(1234567890123456789L, readData.getGint64Value().getValue());
         Assertions.assertEquals(4321, readData.getGuint32Value().getValue());
         Assertions.assertEquals(324552L, readData.getGuint64Value().getValue());
-        Assertions.assertTrue( readData.getGbValue().getValue());
+        Assertions.assertTrue(readData.getGbValue().getValue());
+        Assertions.assertEquals(32, readData.getIo32());
+        Assertions.assertEquals(TestEnum.TWO, readData.getOptEnumValue());
+
+        Assertions.assertEquals(1766249026440L / 1000, readData.getTimestamp().getSeconds());
+        Assertions.assertEquals((1766249026440L % 1000) * 1_000_000, readData.getTimestamp().getNanos());
     }
 
     public static Glob buildGlobRequest() {
@@ -213,6 +222,10 @@ public class ProtobufWriterImplTest {
         main.set(EchoRequestType.giu32Value, 4321);
         main.set(EchoRequestType.giu64Value, 324552L);
 
+
+        main.set(EchoRequestType.io32, 32);
+        main.set(EchoRequestType.optEnumValue, 2);
+        main.set(EchoRequestType.timestamp, 1766249026440L);
         return main;
     }
 
@@ -280,6 +293,10 @@ public class ProtobufWriterImplTest {
         builder.setGuint32Value(UInt32Value.newBuilder().setValue(4321).build());
         builder.setGuint64Value(UInt64Value.newBuilder().setValue(324552L).build());
 
+        builder.setIo32(32);
+        builder.setOptEnumValue(TestEnum.TWO);
+        builder.setTimestamp(Timestamp.newBuilder().setSeconds(1766249026440L/1000)
+                .setNanos((int) ((1766249026440L % 1000) * 1_000_000)).build());
 
         final EchoRequest echoRequest = builder.build();
         return echoRequest;
@@ -333,6 +350,11 @@ public class ProtobufWriterImplTest {
         public static final IntegerField giu32Value;
         public static final LongField giu64Value;
 
+        public static final IntegerField io32;
+        public static final IntegerField optEnumValue;
+
+        public static final LongField timestamp;
+
 
         static {
             final GlobTypeBuilder builder = GlobTypeBuilderFactory.create("EchoRequestType");
@@ -374,6 +396,9 @@ public class ProtobufWriterImplTest {
             gbValue = builder.declareBooleanField("gbValue", ProtobufField.createValue(36));
             giu32Value = builder.declareIntegerField("giu32Value", ProtobufField.createValue(37, ProtobufField.GrpcType.uint32));
             giu64Value = builder.declareLongField("giu64Value", ProtobufField.createValue(38, ProtobufField.GrpcType.uint64));
+            io32 = builder.declareIntegerField("io32Value", ProtobufField.create(39));
+            optEnumValue = builder.declareIntegerField("optEnumValue", ProtobufField.create(40));
+            timestamp = builder.declareLongField("timestamp", ProtobufField.create(41, ProtobufField.GrpcType.timestamp));
             builder.complete();
         }
     }
@@ -432,7 +457,7 @@ public class ProtobufWriterImplTest {
                 echoRequest.writeTo(output);
                 Assertions.assertNotNull(output.toByteArray());
             }
-            System.out.println("protobuf write "+ nanoChrono.getElapsedTimeInMS());
+            System.out.println("protobuf write " + nanoChrono.getElapsedTimeInMS());
         }
         {
             NanoChrono nanoChrono = NanoChrono.start();
@@ -441,7 +466,7 @@ public class ProtobufWriterImplTest {
                 Assertions.assertNotNull(echoRequest);
                 Assertions.assertEquals(341, echoRequest.getFi32());
             }
-            System.out.println("protobuf read "+ nanoChrono.getElapsedTimeInMS());
+            System.out.println("protobuf read " + nanoChrono.getElapsedTimeInMS());
         }
 
     }
@@ -457,7 +482,7 @@ public class ProtobufWriterImplTest {
     public void testGlob() throws IOException {
         final ProtobufWriter.GlobWriter globSerializer = grpcBinWriter.getWriter(EchoRequestType.TYPE);
         final byte[] bytes = new byte[1024];
-        final BufferAllocator alloc = new BufferAllocator(){
+        final BufferAllocator alloc = new BufferAllocator() {
             @Override
             public AllocatedBuffer allocateHeapBuffer(int capacity) {
                 return new AllocatedBuffer(bytes, capacity);

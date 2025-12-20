@@ -62,7 +62,8 @@ public class ProtobufField {
         int32(1), int64(2), uint32(3), uint64(4),
         sint32(5), sint64(6), bool(7), enum_(8),
         fixed64(9), sfixed64(10), double_(11),
-        fixed32(12), sfixed32(13), float_(14);
+        fixed32(12), sfixed32(13), float_(14),
+        timestamp(15);
 
         public final int typeID;
 

@@ -17,8 +17,17 @@ public class ProtoBufGlobStringValueDeserializerImpl implements ProtoBufGlobDese
 
     @Override
     public void read(MutableGlob mutableGlob, SafeHeapReader reader) throws IOException {
-        if (reader.readValueHeader()) {
-            setAccessor.set(mutableGlob, reader.readString());
+        final int previousLimit = reader.readValueHeader();
+        if (previousLimit != -1) {
+            final int tag = reader.getFieldNumber();
+            String value = "";
+            if (tag == 1) {
+                value = reader.readString();
+            } else if (tag != Integer.MAX_VALUE) {
+                throw SafeHeapReader.InvalidProtocolBufferException.parseFailure();
+            }
+            setAccessor.set(mutableGlob, value);
+            reader.endValueHeader(previousLimit);
         }
     }
 }

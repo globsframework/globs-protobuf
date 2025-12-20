@@ -149,6 +149,9 @@ public class GlobDeserializerRegistry {
                                 case 10 -> {
                                     yield new ProtoBufGlobVarSFix64DeserializerImpl(longField);
                                 }
+                                case 15 -> {
+                                    yield new ProtoBufGlobLongTimestampDeserializerImpl(longField);
+                                }
                                 default ->
                                         throw new IllegalStateException("Unexpected value: " + grpcType + " for " + field.getFullName());
                             }
