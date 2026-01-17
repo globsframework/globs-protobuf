@@ -295,7 +295,7 @@ public class ProtobufWriterImplTest {
 
         builder.setIo32(32);
         builder.setOptEnumValue(TestEnum.TWO);
-        builder.setTimestamp(Timestamp.newBuilder().setSeconds(1766249026440L/1000)
+        builder.setTimestamp(Timestamp.newBuilder().setSeconds(1766249026440L / 1000)
                 .setNanos((int) ((1766249026440L % 1000) * 1_000_000)).build());
 
         final EchoRequest echoRequest = builder.build();
@@ -358,7 +358,6 @@ public class ProtobufWriterImplTest {
 
         static {
             final GlobTypeBuilder builder = GlobTypeBuilderFactory.create("EchoRequestType");
-            TYPE = builder.unCompleteType();
             i32 = builder.declareIntegerField("i32", ProtobufField.create(2, ProtobufField.GrpcType.int32));
             si32 = builder.declareIntegerField("si32", ProtobufField.create(3, ProtobufField.GrpcType.sint32));
             ui32 = builder.declareIntegerField("ui32", ProtobufField.create(4, ProtobufField.GrpcType.uint32));
@@ -379,8 +378,8 @@ public class ProtobufWriterImplTest {
             ui64values = builder.declareLongArrayField("ui64values", ProtobufField.create(21, ProtobufField.GrpcType.uint64));
             fi64values = builder.declareLongArrayField("fi64values", ProtobufField.create(22, ProtobufField.GrpcType.fixed64));
             sfi64values = builder.declareLongArrayField("sf64values", ProtobufField.create(23, ProtobufField.GrpcType.sfixed64));
-            children = builder.declareGlobField("children", EchoRequestType.TYPE, ProtobufField.create(12));
-            child = builder.declareGlobArrayField("child", EchoRequestType.TYPE, ProtobufField.create(13));
+            children = builder.declareGlobField("children", () -> EchoRequestType.TYPE, ProtobufField.create(12));
+            child = builder.declareGlobArrayField("child", () -> EchoRequestType.TYPE, ProtobufField.create(13));
             bValue = builder.declareBooleanField("bValue", ProtobufField.create(24));
             bBalues = builder.declareBooleanArrayField("bBalues", ProtobufField.create(25));
             message = builder.declareStringField("message", ProtobufField.create(26));
@@ -399,7 +398,7 @@ public class ProtobufWriterImplTest {
             io32 = builder.declareIntegerField("io32Value", ProtobufField.create(39));
             optEnumValue = builder.declareIntegerField("optEnumValue", ProtobufField.create(40));
             timestamp = builder.declareLongField("timestamp", ProtobufField.create(41, ProtobufField.GrpcType.timestamp));
-            builder.complete();
+            TYPE = builder.build();
         }
     }
 
