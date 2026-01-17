@@ -28,7 +28,9 @@ public class GlobDeserializerRegistry {
         if (protoBufGlobDeserializer != null) {
             return protoBufGlobDeserializer;
         }
-        log.info("Creating deserializer for {}", type.getName());
+        if (log.isDebugEnabled()) {
+            log.debug("Creating deserializer for {}", type.getName());
+        }
         return create(type);
     }
 

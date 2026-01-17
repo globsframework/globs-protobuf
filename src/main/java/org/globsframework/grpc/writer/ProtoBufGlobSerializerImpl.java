@@ -16,10 +16,14 @@ public class ProtoBufGlobSerializerImpl implements ProtoBufGlobSerializer {
 
     public void write(Glob data, BinaryWriter writer) throws IOException {
         if (data.getType() != type) {
-            throw new RuntimeException("Invalid type " + data.getType() + " expected " + type);
+            throw new RuntimeException(getMessage(data));
         }
         for (ProtoBufGlobSerializer attribute : attributes) {
             attribute.write(data, writer);
         }
+    }
+
+    private String getMessage(Glob data) {
+        return "Invalid type '" + data.getType() + "' expected '" + type.getName() + "'";
     }
 }

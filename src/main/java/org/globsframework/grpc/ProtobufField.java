@@ -48,11 +48,10 @@ public class ProtobufField {
 
     static {
         final GlobTypeBuilder grpcField = GlobTypeBuilderFactory.create("GrpcField");
-        TYPE = grpcField.unCompleteType();
         number = grpcField.declareIntegerField("number");
         type = grpcField.declareIntegerField("type");
         isValue = grpcField.declareBooleanField("isValue");
-        grpcField.complete();
+        TYPE = grpcField.build();
         KEY = KeyBuilder.newEmptyKey(TYPE);
     }
 

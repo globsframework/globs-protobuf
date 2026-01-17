@@ -25,7 +25,9 @@ public class GlobSerializerRegistry {
         if (protoBufGlobSerializer != null) {
             return protoBufGlobSerializer;
         }
-        log.info("Creating serializer for {}", type.getName());
+        if (log.isDebugEnabled()) {
+            log.debug("Creating serializer for {}", type.getName());
+        }
         return create(type);
     }
 
