@@ -45,9 +45,11 @@ public class GlobDeserializerRegistry {
     private int computeSize(GlobType type) {
         int maxLen = 0;
         for (Field field : type.getFields()) {
-            final Glob annotation = field.getAnnotation(ProtobufField.KEY);
-            final Integer grpcNumber = annotation.getNotNull(ProtobufField.number);
-            maxLen = Math.max(maxLen, grpcNumber);
+            final Glob annotation = field.findAnnotation(ProtobufField.KEY);
+            if (annotation != null) {
+                final Integer grpcNumber = annotation.getNotNull(ProtobufField.number);
+                maxLen = Math.max(maxLen, grpcNumber);
+            }
         }
         return maxLen + 1;
     }
@@ -55,7 +57,11 @@ public class GlobDeserializerRegistry {
     public void createFieldDeserializer(GlobType type, ProtoBufGlobDeserializer[] attributes) {
         final Field[] fields = type.getFields();
         for (Field field : fields) {
-            final Glob annotation = field.getAnnotation(ProtobufField.KEY);
+            final Glob annotation = field.findAnnotation(ProtobufField.KEY);
+            if (annotation == null) {
+                log.warn("'{}' is not a protobuf field (missing ProtobufField annotation)", field.getName());
+                continue;
+            }
             final int grpcType = annotation.get(ProtobufField.type);
             final boolean isValueType = annotation.isTrue(ProtobufField.isValue);
             final Integer grpcNumber = annotation.getNotNull(ProtobufField.number);
@@ -221,8 +227,8 @@ public class GlobDeserializerRegistry {
     private static RuntimeException throwDuplicate(GlobType type, Field field, Integer grpcNumber) {
         return new RuntimeException("On field " + field.getName() + " duplicate grpc id " + grpcNumber +
                                     " with " + type.streamFields()
-                                            .filter(f -> f.getAnnotation(ProtobufField.KEY)
-                                                    .get(ProtobufField.number).equals(grpcNumber)).findFirst()
+                                            .filter(f -> f.findOptAnnotation(ProtobufField.KEY)
+                                                    .map(ProtobufField.number).orElse(-1).equals(grpcNumber)).findFirst()
                                             .orElseThrow().getFullName());
     }
 

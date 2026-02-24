@@ -43,7 +43,12 @@ public class GlobSerializerRegistry {
         final Field[] fields = type.getFields();
         int i = 0;
         for (Field field : fields) {
-            final Glob annotation = field.getAnnotation(ProtobufField.KEY);
+            final Glob annotation = field.findAnnotation(ProtobufField.KEY);
+            if (annotation == null) {
+                attributes[i] = (data, writer) -> {};
+                log.warn("'{}' is not a protobuf field (missing ProtobufField annotation)", field.getName());
+                continue;
+            }
             final int grpcType = annotation.get(ProtobufField.type);
             final boolean isValueType = annotation.isTrue(ProtobufField.isValue);
             final Integer grpcNumber = annotation.getNotNull(ProtobufField.number);

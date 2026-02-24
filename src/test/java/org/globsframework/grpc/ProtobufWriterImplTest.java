@@ -226,6 +226,7 @@ public class ProtobufWriterImplTest {
         main.set(EchoRequestType.io32, 32);
         main.set(EchoRequestType.optEnumValue, 2);
         main.set(EchoRequestType.timestamp, 1766249026440L);
+        main.set(EchoRequestType.unmapped, 10L);
         return main;
     }
 
@@ -355,6 +356,8 @@ public class ProtobufWriterImplTest {
 
         public static final LongField timestamp;
 
+        public static final LongField unmapped;
+
 
         static {
             final GlobTypeBuilder builder = GlobTypeBuilderFactory.create("EchoRequestType");
@@ -398,6 +401,7 @@ public class ProtobufWriterImplTest {
             io32 = builder.declareIntegerField("io32Value", ProtobufField.create(39));
             optEnumValue = builder.declareIntegerField("optEnumValue", ProtobufField.create(40));
             timestamp = builder.declareLongField("timestamp", ProtobufField.create(41, ProtobufField.GrpcType.timestamp));
+            unmapped = builder.declareLongField("unmapped");
             TYPE = builder.build();
         }
     }
