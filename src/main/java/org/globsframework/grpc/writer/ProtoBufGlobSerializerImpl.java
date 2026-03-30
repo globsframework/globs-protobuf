@@ -5,7 +5,7 @@ import org.globsframework.core.model.Glob;
 
 import java.io.IOException;
 
-public class ProtoBufGlobSerializerImpl implements ProtoBufGlobSerializer {
+public final class ProtoBufGlobSerializerImpl implements ProtoBufGlobSerializer {
     private final GlobType type;
     private final ProtoBufGlobSerializer[] attributes;
 

@@ -11,7 +11,7 @@ import org.globsframework.grpc.reader.SafeHeapReader;
 
 import java.io.IOException;
 
-public class ProtoBufGlobFieldDeserializerImpl implements ProtoBufGlobDeserializer {
+public final class ProtoBufGlobFieldDeserializerImpl implements ProtoBufGlobDeserializer {
     private final GlobType type;
     private final ProtoBufGlobDeserializer deserializer;
     private final GlobInstantiator instantiator;

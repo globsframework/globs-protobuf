@@ -6,7 +6,7 @@ import org.globsframework.core.model.Glob;
 import java.io.IOException;
 import java.util.Map;
 
-public class ProtobufWriterImpl implements ProtobufWriter {
+public final class ProtobufWriterImpl implements ProtobufWriter {
     private final Map<GlobType, ProtoBufGlobSerializer> preInit;
     private final GlobSerializerRegistry registry;
 
@@ -38,7 +38,7 @@ public class ProtobufWriterImpl implements ProtobufWriter {
         return new GlobWriterImpl(protoBufGlobSerializer);
     }
 
-    private static class GlobWriterImpl implements GlobWriter {
+    private final static class GlobWriterImpl implements GlobWriter {
         private final ProtoBufGlobSerializer protoBufGlobSerializer;
 
         public GlobWriterImpl(ProtoBufGlobSerializer protoBufGlobSerializer) {

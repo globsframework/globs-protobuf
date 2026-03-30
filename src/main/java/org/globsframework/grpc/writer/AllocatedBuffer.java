@@ -1,6 +1,6 @@
 package org.globsframework.grpc.writer;
 
-public class AllocatedBuffer {
+public final class AllocatedBuffer {
     private final int length;
     private int position;
     private final byte[] bytes;

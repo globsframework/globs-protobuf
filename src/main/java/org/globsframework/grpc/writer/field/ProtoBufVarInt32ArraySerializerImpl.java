@@ -8,7 +8,7 @@ import org.globsframework.grpc.writer.ProtoBufGlobSerializer;
 
 import java.io.IOException;
 
-public class ProtoBufVarInt32ArraySerializerImpl implements ProtoBufGlobSerializer {
+public final class ProtoBufVarInt32ArraySerializerImpl implements ProtoBufGlobSerializer {
     private final int fieldNumber;
     private final GlobGetIntArrayAccessor getValueAccessor;
 

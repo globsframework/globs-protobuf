@@ -8,7 +8,7 @@ import org.globsframework.grpc.reader.SafeHeapReader;
 
 import java.io.IOException;
 
-public class ProtoBufGlobBoolArrayFieldDeserializerImpl implements ProtoBufGlobDeserializer {
+public final class ProtoBufGlobBoolArrayFieldDeserializerImpl implements ProtoBufGlobDeserializer {
     private final GlobSetBooleanArrayAccessor setAccessor;
 
     public ProtoBufGlobBoolArrayFieldDeserializerImpl(BooleanArrayField field) {

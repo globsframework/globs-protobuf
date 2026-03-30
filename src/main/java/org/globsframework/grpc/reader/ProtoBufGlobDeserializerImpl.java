@@ -4,7 +4,7 @@ import org.globsframework.core.model.MutableGlob;
 
 import java.io.IOException;
 
-public class ProtoBufGlobDeserializerImpl implements ProtoBufGlobDeserializer {
+public final class ProtoBufGlobDeserializerImpl implements ProtoBufGlobDeserializer {
     private final ProtoBufGlobDeserializer[] attributes;
 
     public ProtoBufGlobDeserializerImpl(ProtoBufGlobDeserializer[] fieldDeserializer) {
