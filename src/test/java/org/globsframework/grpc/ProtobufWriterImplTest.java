@@ -415,6 +415,41 @@ public class ProtobufWriterImplTest {
         grpcBinWriter.write(glob, BinaryWriter.newHeapInstance(BufferAllocator.create(), 102));
     }
 
+    @Test
+    void unmappedFieldDeclaredBeforeAMappedOne() throws IOException {
+        final MutableGlob glob = WithUnmappedType.TYPE.instantiate();
+        glob.set(WithUnmappedType.before, 3);
+        glob.set(WithUnmappedType.unmapped, "ignored");
+        glob.set(WithUnmappedType.after, "kept");
+
+        final ProtobufWriter grpcBinWriter = ProtobufWriter.create();
+        final BinaryWriter writer = BinaryWriter.newHeapInstance(BufferAllocator.create());
+        grpcBinWriter.write(glob, writer);
+        final AllocatedBuffer buffer = writer.complete();
+
+        final Glob read = new ProtobufReaderImpl(GlobType::instantiate)
+                .read(WithUnmappedType.TYPE, new SafeHeapReader(buffer.array(), buffer.position(), buffer.limit()));
+        Assertions.assertEquals(3, read.get(WithUnmappedType.before));
+        Assertions.assertEquals("kept", read.get(WithUnmappedType.after));
+        Assertions.assertFalse(read.isSet(WithUnmappedType.unmapped));
+    }
+
+    static class WithUnmappedType {
+        public static final GlobType TYPE;
+
+        public static final IntegerField before;
+        public static final StringField unmapped;
+        public static final StringField after;
+
+        static {
+            final GlobTypeBuilder builder = GlobTypeBuilderFactory.create("WithUnmappedType");
+            before = builder.declareIntegerField("before", ProtobufField.create(1));
+            unmapped = builder.declareStringField("unmapped");
+            after = builder.declareStringField("after", ProtobufField.create(2));
+            TYPE = builder.build();
+        }
+    }
+
 
     @Test
     void radWriteManyTime() throws IOException {

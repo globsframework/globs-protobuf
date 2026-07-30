@@ -47,6 +47,7 @@ public class GlobSerializerRegistry {
             if (annotation == null) {
                 attributes[i] = (data, writer) -> {};
                 log.warn("'{}' is not a protobuf field (missing ProtobufField annotation)", field.getName());
+                i++;
                 continue;
             }
             final int grpcType = annotation.get(ProtobufField.type);
