@@ -70,11 +70,11 @@ public class GlobDeserializerRegistry {
             }
             attributes[grpcNumber] =
                     switch (field) {
-                        case GlobField globField -> {
+                        case GlobField<?> globField -> {
                             yield new ProtoBufGlobFieldDeserializerImpl(globField,
                                     getDeserializer(globField.getTargetType()), instantiator);
                         }
-                        case GlobArrayField globArrayField -> {
+                        case GlobArrayField<?> globArrayField -> {
                             yield new ProtoBufGlobArrayFieldDeserializerImpl(globArrayField,
                                     getDeserializer(globArrayField.getTargetType()), instantiator);
                         }

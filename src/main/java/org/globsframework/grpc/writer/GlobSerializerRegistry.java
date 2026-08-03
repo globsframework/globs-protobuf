@@ -158,9 +158,9 @@ public class GlobSerializerRegistry {
                         throw new IllegalStateException("Unexpected value: " + grpcType + " for " + field.getFullName());
                     }
                 }
-                case GlobField globField ->
+                case GlobField<?> globField ->
                         new ProtoBufGlobFieldGlobSerializer(globField, grpcNumber, getGlobSerializer(globField.getTargetType()));
-                case GlobArrayField globArrayField ->
+                case GlobArrayField<?> globArrayField ->
                         new ProtoBufGlobArrayFieldGlobSerializer(globArrayField, grpcNumber, getGlobSerializer(globArrayField.getTargetType()));
                 case StringField stringField -> {
                     if (grpcType == 0) {

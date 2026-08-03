@@ -340,9 +340,9 @@ public class ProtobufWriterImplTest {
         public static final DoubleField fValue;
         public static final DoubleArrayField fValues;
 
-        public static final GlobField children;
+        public static final GlobField<EchoRequestType> children;
 
-        public static final GlobArrayField child;
+        public static final GlobArrayField<EchoRequestType> child;
         public static final IntegerField enumValue;
         public static final StringField gstrValue;
         public static final IntegerField gi32Value;
