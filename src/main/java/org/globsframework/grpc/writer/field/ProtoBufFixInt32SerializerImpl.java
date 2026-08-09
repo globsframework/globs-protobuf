@@ -4,11 +4,12 @@ import org.globsframework.core.metamodel.fields.IntegerField;
 import org.globsframework.core.model.Glob;
 import org.globsframework.core.model.globaccessor.get.GlobGetIntAccessor;
 import org.globsframework.grpc.writer.BinaryWriter;
-import org.globsframework.grpc.writer.ProtoBufGlobSerializer;
+import org.globsframework.grpc.writer.ProtoBufFieldSerializer;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 
-public final class ProtoBufFixInt32SerializerImpl implements ProtoBufGlobSerializer {
+public final class ProtoBufFixInt32SerializerImpl implements ProtoBufFieldSerializer {
     private final int fieldNumber;
     private final GlobGetIntAccessor getValueAccessor;
 
@@ -21,6 +22,18 @@ public final class ProtoBufFixInt32SerializerImpl implements ProtoBufGlobSeriali
         final Integer value = getValueAccessor.get(data);
         if (value != null) {
             binaryWriter.writeFixed32(fieldNumber, value);
+        }
+    }
+
+    public void call(boolean isSet, boolean isNull, Object rawValue, BinaryWriter binaryWriter, Void ignored) {
+        if (isNull) {
+            return;
+        }
+        final Integer value = (Integer) rawValue;
+        try {
+            binaryWriter.writeFixed32(fieldNumber, value);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
         }
     }
 }

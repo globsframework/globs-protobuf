@@ -1,0 +1,128 @@
+package org.globsframework.grpc;
+
+import org.globsframework.core.metamodel.GlobType;
+import org.globsframework.core.model.Glob;
+import org.globsframework.core.model.GlobFactoryService;
+import org.globsframework.grpc.writer.GlobSerializerRegistry;
+import org.globsframework.grpc.writer.ProtoBufGlobSerializer;
+import org.globsframework.grpc.writer.ProtoBufGlobSerializerImpl;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * Guards {@link GeneratedGlobPerfTest} : the generated flavours must really be in use (an inert generator would
+ * make the benchmark compare DefaultGlob with itself) and must serialize to exactly the same bytes as
+ * DefaultGlob, otherwise the two sides of the comparison are not doing the same work.
+ * <p>
+ * {@link #compareFlavours()} also prints a rough timing of the three flavours — enough to see where they stand
+ * without running the JMH benchmark, but it asserts nothing about the durations.
+ */
+public class GeneratedGlobSerializationTest {
+
+    @AfterEach
+    public void tearDown() {
+        System.clearProperty("globs.builder");
+        GlobFactoryService.Builder.reset();
+    }
+
+    @Test
+    public void generatedFlavoursAreReallyGenerated() {
+        Assertions.assertTrue(PerfTypeFamily.create(GlobFlavour.DEFAULT).data[0].getClass().getName()
+                        .startsWith("org.globsframework.core.model.impl."),
+                "not a DefaultGlob : " + PerfTypeFamily.create(GlobFlavour.DEFAULT).data[0].getClass().getName());
+
+        for (GlobFlavour flavour : List.of(GlobFlavour.OBJECT, GlobFlavour.PRIMITIVE)) {
+            for (Glob glob : PerfTypeFamily.create(flavour).data) {
+                Assertions.assertTrue(glob.getClass().getName().startsWith("org.globsframework.model.generated."),
+                        flavour + " did not generate a Glob : " + glob.getClass().getName());
+            }
+        }
+    }
+
+    /**
+     * The accessor writer goes through a GeneratedFunctionCaller for a generated type and through its loop for
+     * DefaultGlob. Nothing observable distinguishes the two — same bytes, which is the point — so the guard has
+     * to ask the serializer, or an inert caller would silently make every measurement below meaningless.
+     */
+    @Test
+    public void theGeneratedFlavoursWriteThroughACaller() {
+        for (GlobFlavour flavour : GlobFlavour.values()) {
+            final boolean expected = flavour != GlobFlavour.DEFAULT;
+            for (GlobType type : PerfTypeFamily.create(flavour).types) {
+                final Map<GlobType, ProtoBufGlobSerializer> serializers = new HashMap<>();
+                final ProtoBufGlobSerializer serializer =
+                        new GlobSerializerRegistry(serializers).getGlobSerializer(type);
+                Assertions.assertEquals(expected,
+                        ((ProtoBufGlobSerializerImpl) serializer).isCallerBased(),
+                        flavour + " / " + type.getName());
+            }
+        }
+    }
+
+    @Test
+    public void everyFlavourSerializesToTheSameBytes() {
+        final PerfTypeFamily expected = PerfTypeFamily.create(GlobFlavour.DEFAULT);
+
+        for (GlobFlavour flavour : List.of(GlobFlavour.OBJECT, GlobFlavour.PRIMITIVE)) {
+            final PerfTypeFamily actual = PerfTypeFamily.create(flavour);
+            for (int shape = 0; shape < expected.types.length; shape++) {
+                Assertions.assertArrayEquals(expected.encoded[shape], actual.encoded[shape],
+                        flavour + " wrote different bytes for shape " + shape);
+                Assertions.assertEquals(PerfTypeFamily.describe(expected.read(shape)),
+                        PerfTypeFamily.describe(actual.read(shape)),
+                        flavour + " read back different values for shape " + shape);
+            }
+        }
+    }
+
+    /**
+     * Indicative timings only — a single JVM sees the three flavours, so the call sites inside the serializers
+     * are megamorphic here whatever the flavour, which is not what a real application gets. Everything is
+     * warmed up before anything is measured so that at least no flavour pays for the others' profile pollution;
+     * for numbers worth quoting, run {@link GeneratedGlobPerfTest}, whose forks isolate each flavour.
+     */
+    @Test
+    public void compareFlavours() {
+        final List<PerfTypeFamily> families = new ArrayList<>();
+        for (GlobFlavour flavour : GlobFlavour.values()) {
+            families.add(PerfTypeFamily.create(flavour));
+        }
+
+        for (int pass = 0; pass < 2; pass++) {
+            final boolean measure = pass == 1;
+            for (PerfTypeFamily family : families) {
+                run(family.flavour + " write", measure, () -> {
+                    for (Glob glob : family.data) {
+                        family.write(glob);
+                    }
+                });
+                run(family.flavour + " read", measure, () -> {
+                    for (int shape = 0; shape < family.types.length; shape++) {
+                        family.read(shape);
+                    }
+                });
+            }
+        }
+    }
+
+    private void run(String label, boolean measure, Runnable toRun) {
+        final int count = 20_000;
+        final long start = System.nanoTime();
+        for (int i = 0; i < count; i++) {
+            toRun.run();
+        }
+        if (measure) {
+            System.out.printf("%-18s %,10d ns/loop%n", label, (System.nanoTime() - start) / count);
+        }
+    }
+
+    static {
+        System.setProperty("globsframework.field.no.check", "true");
+    }
+}

@@ -4,11 +4,12 @@ import org.globsframework.core.metamodel.fields.BooleanField;
 import org.globsframework.core.model.Glob;
 import org.globsframework.core.model.globaccessor.get.GlobGetBooleanAccessor;
 import org.globsframework.grpc.writer.BinaryWriter;
-import org.globsframework.grpc.writer.ProtoBufGlobSerializer;
+import org.globsframework.grpc.writer.ProtoBufFieldSerializer;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 
-public final class ProtoBufBoolSerializerImpl implements ProtoBufGlobSerializer {
+public final class ProtoBufBoolSerializerImpl implements ProtoBufFieldSerializer {
     private final int fieldNumber;
     private final GlobGetBooleanAccessor getValueAccessor;
 
@@ -22,6 +23,18 @@ public final class ProtoBufBoolSerializerImpl implements ProtoBufGlobSerializer 
         final Boolean value = getValueAccessor.get(data);
         if (value != null) {
             binaryWriter.writeBool(fieldNumber, value);
+        }
+    }
+
+    public void call(boolean isSet, boolean isNull, Object rawValue, BinaryWriter binaryWriter, Void ignored) {
+        if (isNull) {
+            return;
+        }
+        final Boolean value = (Boolean) rawValue;
+        try {
+            binaryWriter.writeBool(fieldNumber, value);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
         }
     }
 }

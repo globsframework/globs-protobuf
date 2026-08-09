@@ -32,20 +32,22 @@ public class GlobSerializerRegistry {
     }
 
     private ProtoBufGlobSerializerImpl create(GlobType type) {
-        final ProtoBufGlobSerializer[] attributes = new ProtoBufGlobSerializer[type.getFieldCount()];
+        final ProtoBufFieldSerializer[] attributes = new ProtoBufFieldSerializer[type.getFieldCount()];
         final ProtoBufGlobSerializerImpl newSerializer = new ProtoBufGlobSerializerImpl(type, attributes);
         serializers.put(type, newSerializer);
         createFieldSerializer(type, attributes);
+        // only now : the caller captures the leaves, and they are only all there at this point
+        newSerializer.initCaller(type);
         return newSerializer;
     }
 
-    private void createFieldSerializer(GlobType type, ProtoBufGlobSerializer[] attributes) {
+    private void createFieldSerializer(GlobType type, ProtoBufFieldSerializer[] attributes) {
         final Field[] fields = type.getFields();
         int i = 0;
         for (Field field : fields) {
             final Glob annotation = field.findAnnotation(ProtobufField.KEY);
             if (annotation == null) {
-                attributes[i] = (data, writer) -> {};
+                attributes[i] = SkipFieldSerializer.INSTANCE;
                 log.warn("'{}' is not a protobuf field (missing ProtobufField annotation)", field.getName());
                 i++;
                 continue;

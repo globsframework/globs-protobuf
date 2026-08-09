@@ -4,11 +4,12 @@ import org.globsframework.core.metamodel.fields.LongField;
 import org.globsframework.core.model.Glob;
 import org.globsframework.core.model.globaccessor.get.GlobGetLongAccessor;
 import org.globsframework.grpc.writer.BinaryWriter;
-import org.globsframework.grpc.writer.ProtoBufGlobSerializer;
+import org.globsframework.grpc.writer.ProtoBufFieldSerializer;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 
-public final class ProtoBufSFixInt64SerializerImpl implements ProtoBufGlobSerializer {
+public final class ProtoBufSFixInt64SerializerImpl implements ProtoBufFieldSerializer {
     private final int fieldNumber;
     private final GlobGetLongAccessor getValueAccessor;
 
@@ -21,6 +22,18 @@ public final class ProtoBufSFixInt64SerializerImpl implements ProtoBufGlobSerial
         final Long value = getValueAccessor.get(data);
         if (value != null) {
             binaryWriter.writeSFixed64(fieldNumber, value);
+        }
+    }
+
+    public void call(boolean isSet, boolean isNull, Object rawValue, BinaryWriter binaryWriter, Void ignored) {
+        if (isNull) {
+            return;
+        }
+        final Long value = (Long) rawValue;
+        try {
+            binaryWriter.writeSFixed64(fieldNumber, value);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
         }
     }
 }

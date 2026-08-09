@@ -14,8 +14,8 @@ The parent workspace `../CLAUDE.md` describes how the repos relate; read it for 
 
 ## Build & test
 
-Java 21, Maven 3.9. `globs` core is pinned to a released version (`5.5.0`), resolved from `~/.m2` or GitHub Packages —
-there is no reactor with `globsframework/`; propagating a core change means `mvn install` there first.
+Java 21, Maven 3.9. `globs` core is at **`5.11-SNAPSHOT`** — the writer needs `model/generate/`, so this module tracks a core
+snapshot; there is no reactor with `globsframework/`, so propagating a core change means `mvn install` there first.
 
 ```bash
 mvn test                                   # full build; needs network the first time (surefire provider + protoc)
@@ -23,7 +23,8 @@ mvn -o test-compile                        # offline works once ~/.m2 is warm
 mvn test -Dtest=ProtobufWriterImplTest#allFieldType
 ```
 
-`mvn -o test` currently fails: the surefire junit-platform provider is not in `~/.m2`. Use online `mvn test`.
+`mvn -o test` works now that the surefire junit-platform provider is in `~/.m2`; it did not when this file was
+first written.
 
 `protobuf-maven-plugin` downloads `protoc` and `protoc-gen-grpc-java` binaries for the detected OS (`os-maven-plugin`)
 and generates the test sources from `src/test/proto` — the plugin only has `test-compile` executions, `src/main` has no
@@ -31,6 +32,17 @@ and generates the test sources from `src/test/proto` — the plugin only has `te
 
 `PerfTest` is a JMH benchmark (annotation processor is wired in the compiler plugin); `ProtobufWriterImplTest`'s
 `testProtobuf`/`testGlob` are plain loop timings printed to stdout, not assertions.
+
+`GeneratedGlobPerfTest` is the second JMH benchmark: same serialization, but over Globs built by core's
+`DefaultGlob` and by the two ASM flavours of `globs-generate` (test-scoped, `5.3-SNAPSHOT`, needs an `mvn install`
+in `../globs-generate`). The flavour is a `@Param`, so JMH forks one JVM per flavour and no flavour pollutes the
+others' inline caches; `PerfTypeFamily` builds four *different* GlobTypes per flavour, because with a single type
+the accessor call sites are monomorphic and the numbers say nothing. `GeneratedGlobSerializationTest` is the plain
+JUnit guard around it (the generated flavours really are generated, and all three write identical bytes).
+
+```bash
+java -cp target/classes:target/test-classes:$(cat cp.txt) org.openjdk.jmh.Main 'GeneratedGlobPerfTest' -f 1
+```
 
 ## Architecture
 
@@ -72,6 +84,52 @@ means "not set" and the field is simply not written — this preserves the `isSe
 
 Both registries are `synchronized` and build in two phases (put the composite in the map, *then* fill its array) so
 self-recursive types (`EchoRequest children = 12`) terminate.
+
+The leaves implement `ProtoBufFieldSerializer`, not just `ProtoBufGlobSerializer`: on top of `write(Glob, BinaryWriter)`
+they carry core's `FieldValueFunction`, i.e. `call(isSet, isNull, value, writer, null)` — the same encoding, handed
+the value instead of fetching it through the accessor. `isSet` is ignored: protobuf cannot say "explicitly null", so
+a null value is simply not written (unlike globs-bin-serialisation, whose format has a NULL tag). Since
+`FieldValueFunction` declares no checked exception, each `call` wraps `IOException` in `UncheckedIOException` and
+`ProtoBufGlobSerializerImpl.write` unwraps it.
+
+**Both methods are written out in each leaf, and `ProtoBufFieldSerializer` is deliberately empty.** Factoring the
+encoding into a third method the two would call removes no copy — `write` needs the accessor and a null test on the
+value it just read, `call` needs neither — and putting the shared step on the *interface* (a `default call`
+delegating to a `writeValue`) costs a second interface dispatch on the very path that exists to remove dispatches:
+measured, **229k → 191k ops/s** for the object flavour and **209k → 176k** for the primitive one. A `private`
+helper inside a leaf would be free (statically bound), which is what the four Glob-valued writers of
+globs-bin-serialisation use; on an interface it is not.
+
+`ProtoBufGlobSerializerImpl.initCaller(type)` — called at the end of `GlobSerializerRegistry.create`, not from the
+constructor, because the registry publishes the composite before resolving the fields — asks the type's factory
+(`instanceof GlobGenerateFactory`) for a `GeneratedFunctionCaller` over those leaves. With `globs-generate` installed
+that caller is a generated class holding each leaf in a `static final` field, so the per-field call site is
+monomorphic instead of seeing every leaf class in the process. Nothing is asked of a type whose factory generates
+nothing (`GenerateCaller.callerFor` is deliberately not used: its `DefaultFunctionCaller` reads through
+`Glob.getValue` rather than the typed accessor, and calls the leaves of fields that are not protobuf fields at all),
+and the caller is guarded by `glob.getClass() == type.instantiate().getClass()`, so a Glob from a custom
+`GlobInstantiator` takes the loop rather than a `ClassCastException`. Nothing observable distinguishes the two paths,
+which is why `ProtoBufGlobSerializerImpl.isCallerBased()` exists and
+`GeneratedGlobSerializationTest.theGeneratedFlavoursWriteThroughACaller` asserts it per flavour and per shape.
+
+What it is worth, on `GeneratedGlobPerfTest.write` with four types, caller off → on: **104k → 229k ops/s** for the
+object flavour and **141k → 209k** for the primitive one, DEFAULT unchanged around 185-197k (it has no caller — that
+it does not move is what says the measurement is measuring the caller). Read the 104k against DEFAULT rather than
+against the improvement: generation alone made this writer **half as fast as core's DefaultGlob**, because one
+accessor class per field is more receivers at the same megamorphic site. So the caller buys back that penalty and
+then some.
+
+**A second, byte-identical writing strategy was tried and dropped before landing** — worth knowing so it is not
+tried again. `ProtoBufGlobVisitorSerializerImpl`, reached through a `ProtobufWriter.Builder.initVisitor()`: the
+per-type serializer *was* a `FieldValueVisitorWithContext<BinaryWriter>` handed to `glob.accept`, with each field
+resolved to an opcode in two `int[]` rather than to a serializer object, so the walk ran inside the Glob's own
+`accept` — which for a generated Glob is code belonging to a single type. It attacked exactly what the caller
+attacks, from the Glob's side instead of the serializer's, and it was worth +92 % on the object flavour and +35 % on
+the primitive one against the accessor writer *before* the caller, −16 % on DefaultGlob (whose `accept` pays a
+dispatch on the Field kind while its accessor path was monomorphic). Against the callered accessor writer it wins
+nowhere — 222k / 209k / 168k against 229k / 209k / 184k — so it was deleted rather than kept as a second path to
+maintain, along with the `SerializerRegistry` interface that only existed to hold the two. The reader has no
+equivalent question: it dispatches on the wire tag, not on the Glob.
 
 Two ways to obtain a reader/writer, differing only in the backing map:
 

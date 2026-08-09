@@ -4,11 +4,12 @@ import org.globsframework.core.metamodel.fields.DoubleArrayField;
 import org.globsframework.core.model.Glob;
 import org.globsframework.core.model.globaccessor.get.GlobGetDoubleArrayAccessor;
 import org.globsframework.grpc.writer.BinaryWriter;
-import org.globsframework.grpc.writer.ProtoBufGlobSerializer;
+import org.globsframework.grpc.writer.ProtoBufFieldSerializer;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 
-public final class ProtoBufDoubleArraySerializerImpl implements ProtoBufGlobSerializer {
+public final class ProtoBufDoubleArraySerializerImpl implements ProtoBufFieldSerializer {
     private final int fieldNumber;
     private final GlobGetDoubleArrayAccessor getValueAccessor;
 
@@ -22,6 +23,18 @@ public final class ProtoBufDoubleArraySerializerImpl implements ProtoBufGlobSeri
         double[] values = getValueAccessor.get(data);
         if (values != null) {
             binaryWriter.writeDoubleList(fieldNumber, values, true);
+        }
+    }
+
+    public void call(boolean isSet, boolean isNull, Object rawValue, BinaryWriter binaryWriter, Void ignored) {
+        if (isNull) {
+            return;
+        }
+        final double[] values = (double[]) rawValue;
+        try {
+            binaryWriter.writeDoubleList(fieldNumber, values, true);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
         }
     }
 }
