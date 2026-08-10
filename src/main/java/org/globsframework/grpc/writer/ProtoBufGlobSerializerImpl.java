@@ -63,7 +63,8 @@ public final class ProtoBufGlobSerializerImpl implements ProtoBufGlobSerializer 
         if (data.getType() != type) {
             throw new RuntimeException(getMessage(data));
         }
-        if (data.getClass() == generatedGlobClass) {
+//        if (data.getClass() == generatedGlobClass) {
+        if (caller != null){
             try {
                 caller.call(data, writer, null);
             } catch (UncheckedIOException e) {

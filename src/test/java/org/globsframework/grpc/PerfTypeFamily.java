@@ -159,9 +159,9 @@ public class PerfTypeFamily {
                 glob.set(f, new double[]{i + 0.5, i + 1.5});
             } else if (field instanceof StringArrayField f) {
                 glob.set(f, new String[]{"a" + i, "b" + i});
-            } else if (withChildren && field instanceof GlobField f) {
+            } else if (withChildren && field instanceof GlobField<?> f) {
                 glob.set(f, fill(f.getTargetType().instantiate(), seed + 1, false));
-            } else if (withChildren && field instanceof GlobArrayField f) {
+            } else if (withChildren && field instanceof GlobArrayField<?> f) {
                 glob.set(f, new Glob[]{fill(f.getTargetType().instantiate(), seed + 2, false),
                         fill(f.getTargetType().instantiate(), seed + 3, false)});
             }

@@ -15,7 +15,7 @@ public final class ProtoBufGlobArrayFieldGlobSerializer implements ProtoBufField
     private final ProtoBufGlobSerializer globSerializer;
     private final GlobGetGlobArrayAccessor getValueAccessor;
 
-    public ProtoBufGlobArrayFieldGlobSerializer(GlobArrayField field, Integer grpcNumber, ProtoBufGlobSerializer globSerializer) {
+    public ProtoBufGlobArrayFieldGlobSerializer(GlobArrayField<?> field, Integer grpcNumber, ProtoBufGlobSerializer globSerializer) {
         this.grpcNumber = grpcNumber;
         this.globSerializer = globSerializer;
         this.getValueAccessor = field.getGlobType().getGetAccessor(field);
