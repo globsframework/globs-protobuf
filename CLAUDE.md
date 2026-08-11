@@ -101,14 +101,18 @@ helper inside a leaf would be free (statically bound), which is what the four Gl
 globs-bin-serialisation use; on an interface it is not.
 
 `ProtoBufGlobSerializerImpl.initCaller(type)` — called at the end of `GlobSerializerRegistry.create`, not from the
-constructor, because the registry publishes the composite before resolving the fields — asks the type's factory
-(`instanceof GlobGenerateFactory`) for a `GeneratedFunctionCaller` over those leaves. With `globs-generate` installed
+constructor, because the registry publishes the composite before resolving the fields — asks **core**
+(`GenerateCaller.generatedCallerFor`) for a `GeneratedFunctionCaller` over those leaves, rather than testing
+`GlobGenerateFactory` itself. That is what makes both ways of getting one reach this module: the type's own factory
+under `-Dglobs.builder`, and the `GenerateCallerService` of `-Dglobs.caller` for the Globs core builds
+(`theCallerServiceReachesTheWriterForANonGeneratedType`). `generatedCallerFor` and not `callerFor` : null means
+"nobody can generate this", and the loop is a better answer than the `DefaultFunctionCaller` `callerFor` would hand
+back, being 10-20 % ahead of it. With `globs-generate` installed
 that caller is a generated class holding each leaf in a `static final` field, so the per-field call site is
 monomorphic instead of seeing every leaf class in the process. Nothing is asked of a type whose factory generates
-nothing (`GenerateCaller.callerFor` is deliberately not used: its `DefaultFunctionCaller` reads through
-`Glob.getValue` rather than the typed accessor, and calls the leaves of fields that are not protobuf fields at all),
-and the caller is guarded by `glob.getClass() == type.instantiate().getClass()`, so a Glob from a custom
-`GlobInstantiator` takes the loop rather than a `ClassCastException`. Nothing observable distinguishes the two paths,
+nothing, and the caller is guarded by `glob.getClass() == type.instantiate().getClass()`, so a Glob of the right
+type from another source — a custom `GlobInstantiator` — takes the loop rather than a `ClassCastException` inside
+the generated `call`. One reference compare per glob. Nothing observable distinguishes the two paths,
 which is why `ProtoBufGlobSerializerImpl.isCallerBased()` exists and
 `GeneratedGlobSerializationTest.theGeneratedFlavoursWriteThroughACaller` asserts it per flavour and per shape.
 
