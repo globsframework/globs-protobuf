@@ -14,7 +14,7 @@ The parent workspace `../CLAUDE.md` describes how the repos relate; read it for 
 
 ## Build & test
 
-Java 21, Maven 3.9. `globs` core is at **`5.11-SNAPSHOT`** — the writer needs `model/generate/`, so this module tracks a core
+Java 21, Maven 3.9. `globs` core is at **`5.11-SNAPSHOT`** — the writer needs `model/generate/read/`, so this module tracks a core
 snapshot; there is no reactor with `globsframework/`, so propagating a core change means `mvn install` there first.
 
 ```bash

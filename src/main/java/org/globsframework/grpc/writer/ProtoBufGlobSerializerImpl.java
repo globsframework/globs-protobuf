@@ -3,9 +3,9 @@ package org.globsframework.grpc.writer;
 import org.globsframework.core.metamodel.GlobType;
 import org.globsframework.core.metamodel.fields.Field;
 import org.globsframework.core.model.Glob;
-import org.globsframework.core.model.generate.FieldValueFunction;
-import org.globsframework.core.model.generate.GenerateCaller;
-import org.globsframework.core.model.generate.GeneratedFunctionCaller;
+import org.globsframework.core.model.generate.read.FieldValueFunction;
+import org.globsframework.core.model.generate.read.GenerateCaller;
+import org.globsframework.core.model.generate.read.GeneratedFunctionCaller;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;

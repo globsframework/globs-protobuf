@@ -1,6 +1,6 @@
 package org.globsframework.grpc.writer;
 
-import org.globsframework.core.model.generate.FieldValueFunction;
+import org.globsframework.core.model.generate.read.FieldValueFunction;
 
 /**
  * A per-field serializer, i.e. one entry of the array {@link ProtoBufGlobSerializerImpl} holds — as opposed to

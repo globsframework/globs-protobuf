@@ -3,7 +3,7 @@ package org.globsframework.grpc;
 import org.globsframework.core.metamodel.GlobType;
 import org.globsframework.core.model.Glob;
 import org.globsframework.core.model.GlobFactoryService;
-import org.globsframework.core.model.generate.GenerateCallerService;
+import org.globsframework.core.model.generate.read.GenerateCallerService;
 import org.globsframework.grpc.writer.GlobSerializerRegistry;
 import org.globsframework.grpc.writer.ProtoBufGlobSerializer;
 import org.globsframework.grpc.writer.ProtoBufGlobSerializerImpl;
