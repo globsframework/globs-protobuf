@@ -152,6 +152,20 @@ nowhere — 222k / 209k / 168k against 229k / 209k / 184k — so it was deleted 
 maintain, along with the `SerializerRegistry` interface that only existed to hold the two. The reader has no
 equivalent question: it dispatches on the wire tag, not on the Glob.
 
+**The `ProtoBufGlobDeserializer` leaves are records too, and that one buys nothing yet — deliberately.** The
+folding that makes the writer leaves worth +4 % needs a *constant receiver*, which they get from the generated
+caller's `static final`s. `ProtoBufGlobDeserializerImpl.read` dispatches through `attributes[tag]`, an array
+element: nothing there is a JIT constant, so nothing folds. Measured, five forks each: `read` 132.6k → 130.1k
+ops/s, i.e. no change (the untouched `readAllFields` moves as much, 423.8k → 426.4k). It is kept for symmetry
+with the writers and because it is what makes the *next* step pay, not for what it does today.
+
+That next step is the one globs-bin-serialisation took: its reader now drives core's `GeneratedCallerWrite` —
+the read loop is exactly that shape, a `CallAtWrite` answering the next field number and one
+`MutableFunctionWrite` per number — for **+17 %**, and the record leaves then added **+3.8 % to +12.3 %** on top
+of it. Here it would mean `ProtoBufGlobDeserializer` extending `MutableFunctionWrite`, `SafeHeapReader` playing
+the `CallAtWrite` (its `getFieldNumber()` already *is* `getNextToCall`, `Integer.MAX_VALUE` already being the
+end sentinel), and `-Dglobs.callerWrite` to install the generator.
+
 Two ways to obtain a reader/writer, differing only in the backing map:
 
 - `ProtobufWriter.Builder.init().add(TYPE).build()` / `ProtobufReader.Builder.init(instantiator).add(TYPE).build()` —

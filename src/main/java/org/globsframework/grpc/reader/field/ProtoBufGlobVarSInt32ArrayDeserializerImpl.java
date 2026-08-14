@@ -8,11 +8,10 @@ import org.globsframework.grpc.reader.SafeHeapReader;
 
 import java.io.IOException;
 
-public final class ProtoBufGlobVarSInt32ArrayDeserializerImpl implements ProtoBufGlobDeserializer {
-    private final GlobSetIntArrayAccessor setAccessor;
+public record ProtoBufGlobVarSInt32ArrayDeserializerImpl(GlobSetIntArrayAccessor setAccessor) implements ProtoBufGlobDeserializer {
 
     public ProtoBufGlobVarSInt32ArrayDeserializerImpl(IntegerArrayField field) {
-        setAccessor = field.getGlobType().getSetAccessor(field);
+        this((GlobSetIntArrayAccessor) field.getGlobType().getSetAccessor(field));
     }
 
     @Override

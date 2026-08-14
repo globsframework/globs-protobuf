@@ -8,11 +8,10 @@ import org.globsframework.grpc.reader.SafeHeapReader;
 
 import java.io.IOException;
 
-public final class ProtoBufGlobLongTimestampDeserializerImpl implements ProtoBufGlobDeserializer {
-    private final GlobSetLongAccessor setAccessor;
+public record ProtoBufGlobLongTimestampDeserializerImpl(GlobSetLongAccessor setAccessor) implements ProtoBufGlobDeserializer {
 
     public ProtoBufGlobLongTimestampDeserializerImpl(LongField field) {
-        setAccessor = field.getGlobType().getSetAccessor(field);
+        this((GlobSetLongAccessor) field.getGlobType().getSetAccessor(field));
     }
 
     @Override

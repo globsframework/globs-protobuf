@@ -10,18 +10,14 @@ import org.globsframework.grpc.reader.SafeHeapReader;
 
 import java.io.IOException;
 
-public final class ProtoBufGlobFieldDeserializerImpl implements ProtoBufGlobDeserializer {
-    private final GlobType type;
-    private final ProtoBufGlobDeserializer deserializer;
-    private final GlobInstantiator instantiator;
-    private final GlobSetGlobAccessor setAccessor;
+public record ProtoBufGlobFieldDeserializerImpl(GlobType type, ProtoBufGlobDeserializer deserializer, GlobInstantiator instantiator, GlobSetGlobAccessor setAccessor) implements ProtoBufGlobDeserializer {
 
     public ProtoBufGlobFieldDeserializerImpl(GlobField<?> field, ProtoBufGlobDeserializer deserializer,
                                              GlobInstantiator instantiator) {
-        setAccessor = field.getGlobType().getSetAccessor(field);
-        this.type = field.getTargetType();
-        this.deserializer = deserializer;
-        this.instantiator = instantiator;
+        this(field.getTargetType(),
+                deserializer,
+                instantiator,
+                (GlobSetGlobAccessor) field.getGlobType().getSetAccessor(field));
     }
 
     @Override
