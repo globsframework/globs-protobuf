@@ -119,7 +119,7 @@ globs-bin-serialisation use; on an interface it is not.
 
 `ProtoBufGlobSerializerImpl.initCaller(type)` — called at the end of `GlobSerializerRegistry.create`, not from the
 constructor, because the registry publishes the composite before resolving the fields — asks **core**
-(`GenerateCaller.generatedCallerFor`) for a `GeneratedFunctionCallerWrite` over those leaves, rather than testing
+(`GenerateCaller.generatedCallerFor`) for a `GeneratedFunctionCaller` over those leaves, rather than testing
 `GlobGenerateFactory` itself. That is what makes both ways of getting one reach this module: the type's own factory
 under `-Dglobs.builder`, and the `GenerateCallerService` of `-Dglobs.caller` for the Globs core builds
 (`theCallerServiceReachesTheWriterForANonGeneratedType`). `generatedCallerFor` and not `callerFor` : null means
