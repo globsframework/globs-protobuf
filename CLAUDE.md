@@ -152,6 +152,18 @@ nowhere — 222k / 209k / 168k against 229k / 209k / 184k — so it was deleted 
 maintain, along with the `SerializerRegistry` interface that only existed to hold the two. The reader has no
 equivalent question: it dispatches on the wire tag, not on the Glob.
 
+**The writer was tried on `GeneratedCallerWriteAll` and it loses — do not retry it.** The unrolled write-side
+caller is the arm that wins every comparison in globs-generate's `CallerWritePerf`, but those comparisons are
+against the *write* side's own loop; here the incumbent is the **read** side's caller, which is a better
+instrument for serializing: it reads the values straight out of the generated Glob's fields and hands them to
+the leaf, where `GeneratedCallerWriteAll` has each leaf fetch through its accessor. Prototyped (each leaf's
+`call(MutableGlob, BinaryWriter, …)` delegating to its `write`, the composite building the caller from the
+array): **235.7k → 213.3k ops/s on `write` OBJECT, −9.5 %**, five forks each, same build, bytes identical.
+
+There is a type-level objection on top of the measurement: `MutableFunctionWrite.call` takes a `MutableGlob`
+because the write side of the SPI is meant for a *parser*, and a serializer only has a `Glob` — adopting it
+means a `checkcast` on the hot path that any read-only Glob implementation would fail.
+
 ### The reader has a caller too, and it is the *write* half of the SPI
 
 A parser filling a `MutableGlob` is what `model/generate/write` describes, so the read loop maps onto
@@ -182,10 +194,10 @@ little, the array arm dropping ~5 % (130.1k → 123.9k) for the extra super-inte
 
 It needs **`-Dglobs.callerWrite=org.globsframework.model.generator.AsmCallerWriteGeneratorService`**, is
 independent of `globs.builder` (nothing in the emitted switch reads a Glob's layout — the leaves write through
-`MutableGlob`, so there is no guard on the Glob's class, unlike the writer's caller), and asks `getGenerated()`
-rather than `get()`: an array indexed by field number beats the looped `DefaultFunctionCallerWrite` and its
-binary search, so the loop is not the fallback this wants. Run the suite **both ways**; the round-trip tests
-are what say the two paths read the same thing.
+`MutableGlob`, so there is no guard on the Glob's class here, unlike the writer's caller), and asks
+`getGenerated()` rather than `get()`: an array indexed by field number beats the looped
+`DefaultFunctionCallerWrite` and its binary search, so the loop is not the fallback this wants. Run the suite
+**both ways**; the round-trip tests are what say the two paths read the same bytes.
 
 Two ways to obtain a reader/writer, differing only in the backing map:
 
