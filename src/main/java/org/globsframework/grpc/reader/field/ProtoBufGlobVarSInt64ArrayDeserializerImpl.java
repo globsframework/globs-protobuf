@@ -3,12 +3,13 @@ package org.globsframework.grpc.reader.field;
 import org.globsframework.core.metamodel.fields.LongArrayField;
 import org.globsframework.core.model.MutableGlob;
 import org.globsframework.core.model.globaccessor.set.GlobSetLongArrayAccessor;
-import org.globsframework.grpc.reader.ProtoBufGlobDeserializer;
+import org.globsframework.grpc.reader.ProtoBufFieldDeserializer;
 import org.globsframework.grpc.reader.SafeHeapReader;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 
-public record ProtoBufGlobVarSInt64ArrayDeserializerImpl(GlobSetLongArrayAccessor setAccessor) implements ProtoBufGlobDeserializer {
+public record ProtoBufGlobVarSInt64ArrayDeserializerImpl(GlobSetLongArrayAccessor setAccessor) implements ProtoBufFieldDeserializer {
 
     public ProtoBufGlobVarSInt64ArrayDeserializerImpl(LongArrayField field) {
         this((GlobSetLongArrayAccessor) field.getGlobType().getSetAccessor(field));
@@ -17,5 +18,14 @@ public record ProtoBufGlobVarSInt64ArrayDeserializerImpl(GlobSetLongArrayAccesso
     @Override
     public void read(MutableGlob mutableGlob, SafeHeapReader reader) throws IOException {
         setAccessor.set(mutableGlob, reader.readSInt64List());
+    }
+
+    /** The same read, driven by a GeneratedCallerWrite : one call site per field number. */
+    public void call(MutableGlob mutableGlob, SafeHeapReader reader, Void ignored, Void alsoIgnored) {
+        try {
+            read(mutableGlob, reader);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 }

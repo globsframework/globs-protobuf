@@ -152,19 +152,40 @@ nowhere — 222k / 209k / 168k against 229k / 209k / 184k — so it was deleted 
 maintain, along with the `SerializerRegistry` interface that only existed to hold the two. The reader has no
 equivalent question: it dispatches on the wire tag, not on the Glob.
 
-**The `ProtoBufGlobDeserializer` leaves are records too, and that one buys nothing yet — deliberately.** The
-folding that makes the writer leaves worth +4 % needs a *constant receiver*, which they get from the generated
-caller's `static final`s. `ProtoBufGlobDeserializerImpl.read` dispatches through `attributes[tag]`, an array
-element: nothing there is a JIT constant, so nothing folds. Measured, five forks each: `read` 132.6k → 130.1k
-ops/s, i.e. no change (the untouched `readAllFields` moves as much, 423.8k → 426.4k). It is kept for symmetry
-with the writers and because it is what makes the *next* step pay, not for what it does today.
+### The reader has a caller too, and it is the *write* half of the SPI
 
-That next step is the one globs-bin-serialisation took: its reader now drives core's `GeneratedCallerWrite` —
-the read loop is exactly that shape, a `CallAtWrite` answering the next field number and one
-`MutableFunctionWrite` per number — for **+17 %**, and the record leaves then added **+3.8 % to +12.3 %** on top
-of it. Here it would mean `ProtoBufGlobDeserializer` extending `MutableFunctionWrite`, `SafeHeapReader` playing
-the `CallAtWrite` (its `getFieldNumber()` already *is* `getNextToCall`, `Integer.MAX_VALUE` already being the
-end sentinel), and `-Dglobs.callerWrite` to install the generator.
+A parser filling a `MutableGlob` is what `model/generate/write` describes, so the read loop maps onto
+`GeneratedCallerWrite` one piece at a time — and it barely needed adapting:
+
+| the SPI wants | here |
+| --- | --- |
+| `CallAtWrite.getNextToCall()` | `SafeHeapReader.getFieldNumber()`, which already decodes the tag and already answers `Integer.MAX_VALUE` at the end of a message. `getNextToCall` is that, with the checked exception wrapped |
+| the key of each `MutableFunctionWrite` | the proto field number, i.e. the index of `ProtoBufGlobDeserializerImpl`'s array |
+| the fallback | `SkipFieldDeserializer`, which skips — what the array path does for a null entry |
+| `endLoop` | `Integer.MAX_VALUE` |
+
+`ProtoBufFieldDeserializer` is the leaf interface that carries it (`ProtoBufGlobDeserializer` +
+`MutableFunctionWrite<SafeHeapReader, Void, Void>`), exactly as `ProtoBufFieldSerializer` carries
+`FieldValueFunction` on the writer side, and each leaf writes its own one-line `call` delegating to its `read`
+— statically bound on a final class, where a `default` on the interface would be the second interface dispatch
+this exists to remove. `read` declares `IOException` and `MutableFunctionWrite` declares nothing, so `call`
+wraps and `ProtoBufGlobDeserializerImpl.read` unwraps. `initCaller()` runs at the end of
+`GlobDeserializerRegistry.create`, after the array is filled — the registry publishes the composite before
+resolving the fields, for recursive types.
+
+**Measured, `GeneratedGlobPerfTest.read` OBJECT, five forks per arm, same build: 123.9k → 187.0k ops/s,
++51 %.** That is the caller alone, the leaves being records already; and it is why they are records — the
+previous commit measured that conversion at exactly nothing (132.6k → 130.1k) while the dispatch went through
+`attributes[tag]`, with no constant receiver to fold. Same trade as everywhere: the fallback path pays a
+little, the array arm dropping ~5 % (130.1k → 123.9k) for the extra super-interface on the leaves and one
+`caller != null` per glob.
+
+It needs **`-Dglobs.callerWrite=org.globsframework.model.generator.AsmCallerWriteGeneratorService`**, is
+independent of `globs.builder` (nothing in the emitted switch reads a Glob's layout — the leaves write through
+`MutableGlob`, so there is no guard on the Glob's class, unlike the writer's caller), and asks `getGenerated()`
+rather than `get()`: an array indexed by field number beats the looped `DefaultFunctionCallerWrite` and its
+binary search, so the loop is not the fallback this wants. Run the suite **both ways**; the round-trip tests
+are what say the two paths read the same thing.
 
 Two ways to obtain a reader/writer, differing only in the backing map:
 

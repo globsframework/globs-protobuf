@@ -3,12 +3,13 @@ package org.globsframework.grpc.reader.field;
 import org.globsframework.core.metamodel.fields.StringField;
 import org.globsframework.core.model.MutableGlob;
 import org.globsframework.core.model.globaccessor.set.GlobSetStringAccessor;
-import org.globsframework.grpc.reader.ProtoBufGlobDeserializer;
+import org.globsframework.grpc.reader.ProtoBufFieldDeserializer;
 import org.globsframework.grpc.reader.SafeHeapReader;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 
-public record ProtoBufGlobStringValueDeserializerImpl(GlobSetStringAccessor setAccessor) implements ProtoBufGlobDeserializer {
+public record ProtoBufGlobStringValueDeserializerImpl(GlobSetStringAccessor setAccessor) implements ProtoBufFieldDeserializer {
 
     public ProtoBufGlobStringValueDeserializerImpl(StringField field) {
         this((GlobSetStringAccessor) field.getGlobType().getSetAccessor(field));
@@ -27,6 +28,15 @@ public record ProtoBufGlobStringValueDeserializerImpl(GlobSetStringAccessor setA
             }
             setAccessor.set(mutableGlob, value);
             reader.endValueHeader(previousLimit);
+        }
+    }
+
+    /** The same read, driven by a GeneratedCallerWrite : one call site per field number. */
+    public void call(MutableGlob mutableGlob, SafeHeapReader reader, Void ignored, Void alsoIgnored) {
+        try {
+            read(mutableGlob, reader);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
         }
     }
 }

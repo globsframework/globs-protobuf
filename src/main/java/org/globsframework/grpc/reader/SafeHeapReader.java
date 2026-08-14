@@ -15,7 +15,10 @@ import org.globsframework.core.model.GlobInstantiator;
 import org.globsframework.core.model.MutableGlob;
 import org.globsframework.grpc.writer.WireFormat;
 
+import org.globsframework.core.model.generate.write.CallAtWrite;
+
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -24,7 +27,7 @@ import java.util.List;
 
 import static org.globsframework.grpc.writer.WireFormat.*;
 
-public class SafeHeapReader {
+public class SafeHeapReader implements CallAtWrite {
 
     private static final int FIXED32_MULTIPLE_MASK = WireFormat.FIXED32_SIZE - 1;
     private static final int FIXED64_MULTIPLE_MASK = WireFormat.FIXED64_SIZE - 1;
@@ -61,6 +64,19 @@ public class SafeHeapReader {
 
     public int getTotalBytesRead() {
         return pos - initialPos;
+    }
+
+    /**
+     * The CallAtWrite of the read loop : the same tag decoding, with the checked exception wrapped —
+     * CallAtWrite declares none — and Integer.MAX_VALUE, which getFieldNumber already answers at the end of a
+     * message, as the endLoop the caller is built with.
+     */
+    public int getNextToCall() {
+        try {
+            return getFieldNumber();
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 
     public int getFieldNumber() throws IOException {

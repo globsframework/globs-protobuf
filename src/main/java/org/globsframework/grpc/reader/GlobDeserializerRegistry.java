@@ -35,10 +35,14 @@ public class GlobDeserializerRegistry {
     }
 
     private ProtoBufGlobDeserializerImpl create(GlobType type) {
-        ProtoBufGlobDeserializer[] attributes = new ProtoBufGlobDeserializer[computeSize(type)];
+        ProtoBufFieldDeserializer[] attributes = new ProtoBufFieldDeserializer[computeSize(type)];
         final ProtoBufGlobDeserializerImpl value = new ProtoBufGlobDeserializerImpl(attributes);
         deserializers.put(type, value);
         createFieldDeserializer(type, attributes);
+
+        // only now : the caller captures the deserializers, and they are only all there at this point
+        value.initCaller();
+
         return value;
     }
 
@@ -54,7 +58,7 @@ public class GlobDeserializerRegistry {
         return maxLen + 1;
     }
 
-    public void createFieldDeserializer(GlobType type, ProtoBufGlobDeserializer[] attributes) {
+    public void createFieldDeserializer(GlobType type, ProtoBufFieldDeserializer[] attributes) {
         final Field[] fields = type.getFields();
         for (Field field : fields) {
             final Glob annotation = field.findAnnotation(ProtobufField.KEY);

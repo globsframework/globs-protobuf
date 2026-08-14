@@ -3,12 +3,13 @@ package org.globsframework.grpc.reader.field;
 import org.globsframework.core.metamodel.fields.BooleanField;
 import org.globsframework.core.model.MutableGlob;
 import org.globsframework.core.model.globaccessor.set.GlobSetBooleanAccessor;
-import org.globsframework.grpc.reader.ProtoBufGlobDeserializer;
+import org.globsframework.grpc.reader.ProtoBufFieldDeserializer;
 import org.globsframework.grpc.reader.SafeHeapReader;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 
-public record ProtoBufGlobBoolValueFieldDeserializerImpl(GlobSetBooleanAccessor setAccessor) implements ProtoBufGlobDeserializer {
+public record ProtoBufGlobBoolValueFieldDeserializerImpl(GlobSetBooleanAccessor setAccessor) implements ProtoBufFieldDeserializer {
 
     public ProtoBufGlobBoolValueFieldDeserializerImpl(BooleanField field) {
         this((GlobSetBooleanAccessor) field.getGlobType().getSetAccessor(field));
@@ -27,6 +28,15 @@ public record ProtoBufGlobBoolValueFieldDeserializerImpl(GlobSetBooleanAccessor 
             }
             setAccessor.setNative(mutableGlob, value);
             reader.endValueHeader(previousLimit);
+        }
+    }
+
+    /** The same read, driven by a GeneratedCallerWrite : one call site per field number. */
+    public void call(MutableGlob mutableGlob, SafeHeapReader reader, Void ignored, Void alsoIgnored) {
+        try {
+            read(mutableGlob, reader);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
         }
     }
 }
