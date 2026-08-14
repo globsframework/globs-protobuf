@@ -82,6 +82,23 @@ Leaf impls never touch `Field` at runtime: the constructor resolves a typed acce
 (`field.getGlobType().getGetAccessor(field)` / `getSetAccessor(field)`) and stores the proto field number. A null value
 means "not set" and the field is simply not written — this preserves the `isSet`/`isNull` distinction on round-trip.
 
+**The writer leaves are `record`s, and that is a performance decision, not a style one.** C2 constant-folds a final
+*instance* field only for a class it trusts — records, hidden classes, `java.lang.invoke` — since
+`TrustFinalNonStaticFields` is off by default; an ordinary class with a `private final` field is not folded, even
+when the receiver is a constant. And on the caller path the receiver *is* a constant: the generated caller holds
+each leaf in a `static final`, so once `call` is inlined its `this` is a JIT constant and `fieldNumber` becomes a
+compile-time constant — which folds the whole tag computation, `writeTag(computeTag(fieldNumber, wireType))` being
+inlined right there (checked with `-XX:+PrintInlining`). Measured on `GeneratedGlobPerfTest.write` OBJECT, five
+forks each, A/B/A: **224k → 233-235k ops/s, +4 %**, for a mechanical change. The same applies with more to gain to
+`ProtoBufGlobFieldGlobSerializer` / `ProtoBufGlobArrayFieldGlobSerializer`, whose `globSerializer` field is a
+*call* and not just a value — though there it only pays if `writeMessage` inlines. Two consequences: the
+convenience constructor `(Field, number)` now delegates to the canonical one, and a leaf must not gain a
+non-component field. `SkipFieldSerializer` stays a plain class: a stateless singleton has nothing to fold.
+Turning the two Glob-valued leaves' `grpcNumber` from `Integer` into `int` — measured separately, on purpose —
+changes **nothing**: 234.7k ± 3.8k against the 233-235k of the `Integer` version. The unbox was already free,
+the boxed field number being a constant `Integer` that C2 folds through anyway. It was kept because every other
+leaf takes an `int` and because it removes a null hazard, not for speed; don't expect that one back.
+
 Both registries are `synchronized` and build in two phases (put the composite in the map, *then* fill its array) so
 self-recursive types (`EchoRequest children = 12`) terminate.
 
@@ -102,7 +119,7 @@ globs-bin-serialisation use; on an interface it is not.
 
 `ProtoBufGlobSerializerImpl.initCaller(type)` — called at the end of `GlobSerializerRegistry.create`, not from the
 constructor, because the registry publishes the composite before resolving the fields — asks **core**
-(`GenerateCaller.generatedCallerFor`) for a `GeneratedFunctionCaller` over those leaves, rather than testing
+(`GenerateCaller.generatedCallerFor`) for a `GeneratedFunctionCallerWrite` over those leaves, rather than testing
 `GlobGenerateFactory` itself. That is what makes both ways of getting one reach this module: the type's own factory
 under `-Dglobs.builder`, and the `GenerateCallerService` of `-Dglobs.caller` for the Globs core builds
 (`theCallerServiceReachesTheWriterForANonGeneratedType`). `generatedCallerFor` and not `callerFor` : null means

@@ -10,15 +10,10 @@ import org.globsframework.grpc.writer.ProtoBufGlobSerializer;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 
-public final class ProtoBufGlobArrayFieldGlobSerializer implements ProtoBufFieldSerializer {
-    private final Integer grpcNumber;
-    private final ProtoBufGlobSerializer globSerializer;
-    private final GlobGetGlobArrayAccessor getValueAccessor;
+public record ProtoBufGlobArrayFieldGlobSerializer(int grpcNumber, ProtoBufGlobSerializer globSerializer, GlobGetGlobArrayAccessor getValueAccessor) implements ProtoBufFieldSerializer {
 
-    public ProtoBufGlobArrayFieldGlobSerializer(GlobArrayField<?> field, Integer grpcNumber, ProtoBufGlobSerializer globSerializer) {
-        this.grpcNumber = grpcNumber;
-        this.globSerializer = globSerializer;
-        this.getValueAccessor = field.getGlobType().getGetAccessor(field);
+    public ProtoBufGlobArrayFieldGlobSerializer(GlobArrayField<?> field, int grpcNumber, ProtoBufGlobSerializer globSerializer) {
+        this(grpcNumber, globSerializer, field.getGlobType().getGetAccessor(field));
     }
 
     @Override

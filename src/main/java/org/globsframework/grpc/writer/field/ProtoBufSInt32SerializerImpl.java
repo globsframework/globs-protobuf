@@ -9,13 +9,10 @@ import org.globsframework.grpc.writer.ProtoBufFieldSerializer;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 
-public final class ProtoBufSInt32SerializerImpl implements ProtoBufFieldSerializer {
-    private final int fieldNumber;
-    private final GlobGetIntAccessor getValueAccessor;
+public record ProtoBufSInt32SerializerImpl(int fieldNumber, GlobGetIntAccessor getValueAccessor) implements ProtoBufFieldSerializer {
 
     public ProtoBufSInt32SerializerImpl(IntegerField field, int fieldNumber) {
-        this.fieldNumber = fieldNumber;
-        this.getValueAccessor = field.getGlobType().getGetAccessor(field);
+        this(fieldNumber, field.getGlobType().getGetAccessor(field));
     }
 
     public void write(Glob data, BinaryWriter binaryWriter) throws IOException {
