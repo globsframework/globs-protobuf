@@ -1,5 +1,6 @@
 package org.globsframework.grpc.reader;
 
+import org.globsframework.core.metamodel.GlobType;
 import org.globsframework.core.model.MutableGlob;
 import org.globsframework.core.model.generate.write.GeneratedCallerWrite;
 import org.globsframework.core.model.generate.write.GeneratedFunctionCallerWrite;
@@ -37,9 +38,14 @@ public final class ProtoBufGlobDeserializerImpl implements ProtoBufGlobDeseriali
      * {@code -Dglobs.callerWrite=org.globsframework.model.generator.AsmCallerWriteGeneratorService}, which is
      * independent of globs.builder : nothing in the emitted switch reads a Glob's layout.
      * <p>
+     * The name is the identity of the emitted class, and it has to carry the type : a write-side caller is
+     * built from functions alone, so nothing else here tells one type's deserializers from another's.
+     * Constant for a given type, which is what makes the generated class the same one from one run to the
+     * next.
+     * <p>
      * Must be called after the array is filled, and before the deserializers are used.
      */
-    public void initCaller() {
+    public void initCaller(GlobType type) {
         GeneratedFunctionCallerWrite factory = GeneratedFunctionCallerWrite.getGenerated();
         if (factory == null) {
             return;
@@ -50,7 +56,8 @@ public final class ProtoBufGlobDeserializerImpl implements ProtoBufGlobDeseriali
                 functions.put(fieldNumber, attributes[fieldNumber]);
             }
         }
-        caller = factory.create(functions, SkipFieldDeserializer.INSTANCE, Integer.MAX_VALUE);
+        caller = factory.create("grpc.read." + type.getName(), functions, SkipFieldDeserializer.INSTANCE,
+                Integer.MAX_VALUE);
     }
 
     @Override

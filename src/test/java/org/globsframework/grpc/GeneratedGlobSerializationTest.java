@@ -42,7 +42,7 @@ public class GeneratedGlobSerializationTest {
 
         for (GlobFlavour flavour : List.of(GlobFlavour.OBJECT, GlobFlavour.PRIMITIVE)) {
             for (Glob glob : PerfTypeFamily.create(flavour).data) {
-                Assertions.assertTrue(glob.getClass().getName().startsWith("org.globsframework.model.generated."),
+                Assertions.assertTrue(glob.getClass().getName().startsWith("org.globsframework.gen."),
                         flavour + " did not generate a Glob : " + glob.getClass().getName());
             }
         }

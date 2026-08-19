@@ -41,7 +41,7 @@ public class GlobDeserializerRegistry {
         createFieldDeserializer(type, attributes);
 
         // only now : the caller captures the deserializers, and they are only all there at this point
-        value.initCaller();
+        value.initCaller(type);
 
         return value;
     }

@@ -42,7 +42,10 @@ public final class ProtoBufGlobSerializerImpl implements ProtoBufGlobSerializer 
      * Must be called after the array is filled, and before the serializer is used.
      */
     void initCaller(GlobType type) {
-        GeneratedFunctionCaller<BinaryWriter, Void> generated = GenerateCaller.generatedCallerFor(type,
+        // the name is the identity of the emitted class : the purpose only, since generatedCallerFor adds
+        // the type it is generating over
+        GeneratedFunctionCaller<BinaryWriter, Void> generated = GenerateCaller.generatedCallerFor(
+                "grpc.write", type,
                 new GenerateCaller.GetFieldValueFunction<BinaryWriter, Void>() {
                     @SuppressWarnings("unchecked")
                     public <T> FieldValueFunction<T, BinaryWriter, Void> create(Field field) {

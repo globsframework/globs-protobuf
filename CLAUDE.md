@@ -119,7 +119,7 @@ globs-bin-serialisation use; on an interface it is not.
 
 `ProtoBufGlobSerializerImpl.initCaller(type)` — called at the end of `GlobSerializerRegistry.create`, not from the
 constructor, because the registry publishes the composite before resolving the fields — asks **core**
-(`GenerateCaller.generatedCallerFor`) for a `GeneratedFunctionCaller` over those leaves, rather than testing
+(`GenerateCaller.generatedCallerFor("grpc.write", type, …)`) for a `GeneratedFunctionCaller` over those leaves, rather than testing
 `GlobGenerateFactory` itself. That is what makes both ways of getting one reach this module: the type's own factory
 under `-Dglobs.builder`, and the `GenerateCallerService` of `-Dglobs.caller` for the Globs core builds
 (`theCallerServiceReachesTheWriterForANonGeneratedType`). `generatedCallerFor` and not `callerFor` : null means
@@ -181,9 +181,18 @@ A parser filling a `MutableGlob` is what `model/generate/write` describes, so th
 `FieldValueFunction` on the writer side, and each leaf writes its own one-line `call` delegating to its `read`
 — statically bound on a final class, where a `default` on the interface would be the second interface dispatch
 this exists to remove. `read` declares `IOException` and `MutableFunctionWrite` declares nothing, so `call`
-wraps and `ProtoBufGlobDeserializerImpl.read` unwraps. `initCaller()` runs at the end of
+wraps and `ProtoBufGlobDeserializerImpl.read` unwraps. `initCaller(type)` runs at the end of
 `GlobDeserializerRegistry.create`, after the array is filled — the registry publishes the composite before
 resolving the fields, for recursive types.
+
+Both `create` calls take a **name** since `globs` 5.12 (`CallerName` in core) : it is what a generating
+implementation names the class it emits after, and therefore what makes that class the same one from one run
+to the next — an AOT cache matches a class on its name and its bytes, and the counter this replaced matched
+nothing. On the write side it has to carry the type (`"grpc.read." + type.getName()`), which is the only
+reason `initCaller` takes a `GlobType` at all : a write caller is built from functions alone, so nothing else
+tells one type's deserializers from another's. On the read side `"grpc.write"` is enough, `generatedCallerFor`
+adding the type. Build it from something constant in the source — a name that varies per run is accepted and
+silently gives up the identity it asked for.
 
 **Measured, `GeneratedGlobPerfTest.read` OBJECT, five forks per arm, same build: 123.9k → 187.0k ops/s,
 +51 %.** That is the caller alone, the leaves being records already; and it is why they are records — the
