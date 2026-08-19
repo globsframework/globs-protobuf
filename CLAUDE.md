@@ -14,7 +14,7 @@ The parent workspace `../CLAUDE.md` describes how the repos relate; read it for 
 
 ## Build & test
 
-Java 21, Maven 3.9. `globs` core is at **`5.11-SNAPSHOT`** — the writer needs `model/generate/read/`, so this module tracks a core
+Java 21, Maven 3.9. `globs` core is at **`5.11-SNAPSHOT`** — the writer needs `model/caller/`, so this module tracks a core
 snapshot; there is no reactor with `globsframework/`, so propagating a core change means `mvn install` there first.
 
 ```bash
@@ -103,10 +103,10 @@ Both registries are `synchronized` and build in two phases (put the composite in
 self-recursive types (`EchoRequest children = 12`) terminate.
 
 The leaves implement `ProtoBufFieldSerializer`, not just `ProtoBufGlobSerializer`: on top of `write(Glob, BinaryWriter)`
-they carry core's `FieldValueFunction`, i.e. `call(isSet, isNull, value, writer, null)` — the same encoding, handed
+they carry core's `FromGlobFunction`, i.e. `call(isSet, isNull, value, writer, null)` — the same encoding, handed
 the value instead of fetching it through the accessor. `isSet` is ignored: protobuf cannot say "explicitly null", so
 a null value is simply not written (unlike globs-bin-serialisation, whose format has a NULL tag). Since
-`FieldValueFunction` declares no checked exception, each `call` wraps `IOException` in `UncheckedIOException` and
+`FromGlobFunction` declares no checked exception, each `call` wraps `IOException` in `UncheckedIOException` and
 `ProtoBufGlobSerializerImpl.write` unwraps it.
 
 **Both methods are written out in each leaf, and `ProtoBufFieldSerializer` is deliberately empty.** Factoring the
@@ -119,11 +119,11 @@ globs-bin-serialisation use; on an interface it is not.
 
 `ProtoBufGlobSerializerImpl.initCaller(type)` — called at the end of `GlobSerializerRegistry.create`, not from the
 constructor, because the registry publishes the composite before resolving the fields — asks **core**
-(`GenerateCaller.generatedCallerFor("grpc.write", type, …)`) for a `GeneratedFunctionCaller` over those leaves, rather than testing
-`GlobGenerateFactory` itself. That is what makes both ways of getting one reach this module: the type's own factory
-under `-Dglobs.builder`, and the `GenerateCallerService` of `-Dglobs.caller` for the Globs core builds
+(`FromGlobCallerFactory.generatedCallerFor("grpc.write", type, …)`) for a `FromGlobCaller` over those leaves, rather than testing
+`CallerGlobFactory` itself. That is what makes both ways of getting one reach this module: the type's own factory
+under `-Dglobs.builder`, and the `FromGlobCallerService` of `-Dglobs.caller.fromGlob` for the Globs core builds
 (`theCallerServiceReachesTheWriterForANonGeneratedType`). `generatedCallerFor` and not `callerFor` : null means
-"nobody can generate this", and the loop is a better answer than the `DefaultFunctionCaller` `callerFor` would hand
+"nobody can generate this", and the loop is a better answer than the `LoopFromGlobCaller` `callerFor` would hand
 back, being 10-20 % ahead of it. With `globs-generate` installed
 that caller is a generated class holding each leaf in a `static final` field, so the per-field call site is
 monomorphic instead of seeing every leaf class in the process. Nothing is asked of a type whose factory generates
@@ -152,35 +152,35 @@ nowhere — 222k / 209k / 168k against 229k / 209k / 184k — so it was deleted 
 maintain, along with the `SerializerRegistry` interface that only existed to hold the two. The reader has no
 equivalent question: it dispatches on the wire tag, not on the Glob.
 
-**The writer was tried on `GeneratedCallerWriteAll` and it loses — do not retry it.** The unrolled write-side
-caller is the arm that wins every comparison in globs-generate's `CallerWritePerf`, but those comparisons are
+**The writer was tried on `ToGlobCallerAll` and it loses — do not retry it.** The unrolled write-side
+caller is the arm that wins every comparison in globs-generate's `ToGlobCallerPerf`, but those comparisons are
 against the *write* side's own loop; here the incumbent is the **read** side's caller, which is a better
 instrument for serializing: it reads the values straight out of the generated Glob's fields and hands them to
-the leaf, where `GeneratedCallerWriteAll` has each leaf fetch through its accessor. Prototyped (each leaf's
+the leaf, where `ToGlobCallerAll` has each leaf fetch through its accessor. Prototyped (each leaf's
 `call(MutableGlob, BinaryWriter, …)` delegating to its `write`, the composite building the caller from the
 array): **235.7k → 213.3k ops/s on `write` OBJECT, −9.5 %**, five forks each, same build, bytes identical.
 
-There is a type-level objection on top of the measurement: `MutableFunctionWrite.call` takes a `MutableGlob`
-because the write side of the SPI is meant for a *parser*, and a serializer only has a `Glob` — adopting it
+There is a type-level objection on top of the measurement: `ToGlobFunction.call` takes a `MutableGlob`
+because the to-Glob side of the SPI is meant for a *parser*, and a serializer only has a `Glob` — adopting it
 means a `checkcast` on the hot path that any read-only Glob implementation would fail.
 
 ### The reader has a caller too, and it is the *write* half of the SPI
 
-A parser filling a `MutableGlob` is what `model/generate/write` describes, so the read loop maps onto
-`GeneratedCallerWrite` one piece at a time — and it barely needed adapting:
+A parser filling a `MutableGlob` is what `model/caller` describes, so the read loop maps onto
+`ToGlobCaller` one piece at a time — and it barely needed adapting:
 
 | the SPI wants | here |
 | --- | --- |
-| `CallAtWrite.getNextToCall()` | `SafeHeapReader.getFieldNumber()`, which already decodes the tag and already answers `Integer.MAX_VALUE` at the end of a message. `getNextToCall` is that, with the checked exception wrapped |
-| the key of each `MutableFunctionWrite` | the proto field number, i.e. the index of `ProtoBufGlobDeserializerImpl`'s array |
+| `KeySource.nextKey()` | `SafeHeapReader.getFieldNumber()`, which already decodes the tag and already answers `Integer.MAX_VALUE` at the end of a message. `nextKey` is that, with the checked exception wrapped |
+| the key of each `ToGlobFunction` | the proto field number, i.e. the index of `ProtoBufGlobDeserializerImpl`'s array |
 | the fallback | `SkipFieldDeserializer`, which skips — what the array path does for a null entry |
 | `endLoop` | `Integer.MAX_VALUE` |
 
 `ProtoBufFieldDeserializer` is the leaf interface that carries it (`ProtoBufGlobDeserializer` +
-`MutableFunctionWrite<SafeHeapReader, Void, Void>`), exactly as `ProtoBufFieldSerializer` carries
-`FieldValueFunction` on the writer side, and each leaf writes its own one-line `call` delegating to its `read`
+`ToGlobFunction<SafeHeapReader, Void, Void>`), exactly as `ProtoBufFieldSerializer` carries
+`FromGlobFunction` on the writer side, and each leaf writes its own one-line `call` delegating to its `read`
 — statically bound on a final class, where a `default` on the interface would be the second interface dispatch
-this exists to remove. `read` declares `IOException` and `MutableFunctionWrite` declares nothing, so `call`
+this exists to remove. `read` declares `IOException` and `ToGlobFunction` declares nothing, so `call`
 wraps and `ProtoBufGlobDeserializerImpl.read` unwraps. `initCaller(type)` runs at the end of
 `GlobDeserializerRegistry.create`, after the array is filled — the registry publishes the composite before
 resolving the fields, for recursive types.
@@ -188,9 +188,9 @@ resolving the fields, for recursive types.
 Both `create` calls take a **name** since `globs` 5.12 (`CallerName` in core) : it is what a generating
 implementation names the class it emits after, and therefore what makes that class the same one from one run
 to the next — an AOT cache matches a class on its name and its bytes, and the counter this replaced matched
-nothing. On the write side it has to carry the type (`"grpc.read." + type.getName()`), which is the only
+nothing. On the to-Glob side it has to carry the type (`"grpc.read." + type.getName()`), which is the only
 reason `initCaller` takes a `GlobType` at all : a write caller is built from functions alone, so nothing else
-tells one type's deserializers from another's. On the read side `"grpc.write"` is enough, `generatedCallerFor`
+tells one type's deserializers from another's. On the from-Glob side `"grpc.write"` is enough, `generatedCallerFor`
 adding the type. Build it from something constant in the source — a name that varies per run is accepted and
 silently gives up the identity it asked for.
 
@@ -201,11 +201,11 @@ previous commit measured that conversion at exactly nothing (132.6k → 130.1k) 
 little, the array arm dropping ~5 % (130.1k → 123.9k) for the extra super-interface on the leaves and one
 `caller != null` per glob.
 
-It needs **`-Dglobs.callerWrite=org.globsframework.model.generator.AsmCallerWriteGeneratorService`**, is
+It needs **`-Dglobs.caller.toGlob=org.globsframework.model.generator.AsmCallerWriteGeneratorService`**, is
 independent of `globs.builder` (nothing in the emitted switch reads a Glob's layout — the leaves write through
 `MutableGlob`, so there is no guard on the Glob's class here, unlike the writer's caller), and asks
-`getGenerated()` rather than `get()`: an array indexed by field number beats the looped
-`DefaultFunctionCallerWrite` and its binary search, so the loop is not the fallback this wants. Run the suite
+`generated()` rather than `get()`: an array indexed by field number beats the looped
+`LoopToGlobCallerFactory` and its binary search, so the loop is not the fallback this wants. Run the suite
 **both ways**; the round-trip tests are what say the two paths read the same bytes.
 
 Two ways to obtain a reader/writer, differing only in the backing map:

@@ -20,7 +20,7 @@ public record ProtoBufGlobFixInt64ArrayDeserializerImpl(GlobSetLongArrayAccessor
         setAccessor.set(mutableGlob, reader.readFixed64List());
     }
 
-    /** The same read, driven by a GeneratedCallerWrite : one call site per field number. */
+    /** The same read, driven by a ToGlobCaller : one call site per field number. */
     public void call(MutableGlob mutableGlob, SafeHeapReader reader, Void ignored, Void alsoIgnored) {
         try {
             read(mutableGlob, reader);
