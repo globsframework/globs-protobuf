@@ -60,6 +60,15 @@ public final class ProtoBufGlobDeserializerImpl implements ProtoBufGlobDeseriali
                 Integer.MAX_VALUE);
     }
 
+    /**
+     * Whether this type got a caller. Nothing observable depends on it — the same bytes are read into the same
+     * Glob either way, which is exactly why a test has to be able to ask. The symmetric
+     * {@code ProtoBufGlobSerializerImpl.isCallerBased}.
+     */
+    public boolean isCallerBased() {
+        return caller != null;
+    }
+
     @Override
     public void read(MutableGlob mutableGlob, SafeHeapReader reader) throws IOException {
         // one test per glob, not per field : with a caller the whole loop is the generated switch, without one

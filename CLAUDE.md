@@ -40,8 +40,21 @@ others' inline caches; `PerfTypeFamily` builds four *different* GlobTypes per fl
 the accessor call sites are monomorphic and the numbers say nothing. `GeneratedGlobSerializationTest` is the plain
 JUnit guard around it (the generated flavours really are generated, and all three write identical bytes).
 
+The second `@Param` is `caller`, a `CallerMode` — `OFF` / `ON` being the two `globs.caller.*` services installed
+or not. It is a param and not two runs of the suite because both services cache the property they were loaded
+with, so the arms have to be forked apart, which is exactly what JMH does per param combination; `CallerMode`
+installs the properties and resets the services around `PerfTypeFamily.create`, where the registries resolve
+their callers, the same way `GlobFlavour` does it for `globs.builder`. **The axis is not symmetrical**: the
+from-Glob side takes the type's own factory first, so OBJECT and PRIMITIVE are already callered on `write` with
+`OFF` and only DEFAULT changes there, while the to-Glob side has no such first source and `ON` is what installs
+a caller on `read` for *every* flavour — which is not to say it is worth the same to each, see below. `theCallerModeInstallsWhatTheBenchmarkCompares` asserts that per flavour, per mode and per half — an
+inert service would have the two arms measure the same thing twice — and
+`theCallerModeChangesNothingObservable` that the two arms write the same bytes and read back the same values.
+`instantiateAndFill` and `readAllFields` touch no caller and run twice for nothing; pin `-p caller=OFF` for those.
+
 ```bash
 java -cp target/classes:target/test-classes:$(cat cp.txt) org.openjdk.jmh.Main 'GeneratedGlobPerfTest' -f 1
+java -cp ... org.openjdk.jmh.Main 'GeneratedGlobPerfTest.(write|read)$' -p flavour=DEFAULT -f 1   # the caller axis alone
 ```
 
 ## Architecture
@@ -140,6 +153,13 @@ against the improvement: generation alone made this writer **half as fast as cor
 accessor class per field is more receivers at the same megamorphic site. So the caller buys back that penalty and
 then some.
 
+That DEFAULT row is *the type factory's* caller, which DefaultGlob has none of; the service of
+`-Dglobs.caller.fromGlob` gives it one, and it is worth as much there — `GeneratedGlobPerfTest.write` DEFAULT,
+`caller` OFF → ON, one fork: **186.7k → 254.1k ops/s, +36 %**, which puts plain DefaultGlob *ahead* of the
+generated flavours (236k / 238k, both unmoved by the param, having their caller already). Not the paradox it
+looks like: the accessor of a generated Glob is one class per field, and four types' worth of them at one call
+site is what the caller cannot fold away.
+
 **A second, byte-identical writing strategy was tried and dropped before landing** — worth knowing so it is not
 tried again. `ProtoBufGlobVisitorSerializerImpl`, reached through a `ProtobufWriter.Builder.initVisitor()`: the
 per-type serializer *was* a `FieldValueVisitorWithContext<BinaryWriter>` handed to `glob.accept`, with each field
@@ -205,8 +225,14 @@ It needs **`-Dglobs.caller.toGlob=org.globsframework.model.generator.AsmCallerWr
 independent of `globs.builder` (nothing in the emitted switch reads a Glob's layout — the leaves write through
 `MutableGlob`, so there is no guard on the Glob's class here, unlike the writer's caller), and asks
 `generated()` rather than `get()`: an array indexed by field number beats the looped
-`LoopToGlobCallerFactory` and its binary search, so the loop is not the fallback this wants. Run the suite
-**both ways**; the round-trip tests are what say the two paths read the same bytes.
+`LoopToGlobCallerFactory` and its binary search, so the loop is not the fallback this wants. That property is
+the `ON` arm of the benchmark's `caller` param, which installs a caller here for every flavour — but only the
+generated ones gain from it. One fork, four types: OBJECT **124.1k → 172.7k**, DEFAULT **212.4k → 208.3k**,
+i.e. nothing outside the noise for DefaultGlob, whose `Object[]` setters stay megamorphic behind whatever
+dispatches to them; the constant receiver only pays where the leaf's accessor is a field access it can fold.
+Read that beside the writer, where it is DEFAULT that gains and the generated flavours that do not: the caller
+buys the second half of a monomorphic path, never the first. The round-trip tests are what say the two paths
+read the same bytes.
 
 Two ways to obtain a reader/writer, differing only in the backing map:
 

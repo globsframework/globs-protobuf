@@ -4,6 +4,9 @@ import org.globsframework.core.metamodel.GlobType;
 import org.globsframework.core.model.Glob;
 import org.globsframework.core.model.GlobFactoryService;
 import org.globsframework.core.model.caller.FromGlobCallerService;
+import org.globsframework.core.model.caller.ToGlobCallerService;
+import org.globsframework.grpc.reader.GlobDeserializerRegistry;
+import org.globsframework.grpc.reader.ProtoBufGlobDeserializerImpl;
 import org.globsframework.grpc.writer.GlobSerializerRegistry;
 import org.globsframework.grpc.writer.ProtoBufGlobSerializer;
 import org.globsframework.grpc.writer.ProtoBufGlobSerializerImpl;
@@ -32,6 +35,8 @@ public class GeneratedGlobSerializationTest {
         GlobFactoryService.Builder.reset();
         System.clearProperty("globs.caller.fromGlob");
         FromGlobCallerService.Builder.reset();
+        System.clearProperty("globs.caller.toGlob");
+        ToGlobCallerService.Builder.reset();
     }
 
     @Test
@@ -107,8 +112,57 @@ public class GeneratedGlobSerializationTest {
         }
     }
 
+    /**
+     * The guard of the benchmark's second axis : {@link CallerMode#ON} has to really install a caller, or the
+     * two arms measure the same thing twice. Both halves, and both of the writer's sources — OFF is already
+     * callered for a generated flavour's writer (its own factory is a CallerGlobFactory), never for DEFAULT's,
+     * and never for any reader, the to-Glob side having no such first source.
+     */
+    @Test
+    public void theCallerModeInstallsWhatTheBenchmarkCompares() {
+        for (GlobFlavour flavour : GlobFlavour.values()) {
+            for (CallerMode mode : CallerMode.values()) {
+                final boolean writeExpected = mode == CallerMode.ON || flavour != GlobFlavour.DEFAULT;
+                final boolean readExpected = mode == CallerMode.ON;
+                mode.build(() -> {
+                    for (GlobType type : PerfTypeFamily.create(flavour).types) {
+                        final String where = flavour + " / " + mode + " / " + type.getName();
+                        Assertions.assertEquals(writeExpected, serializerOf(type).isCallerBased(), "write " + where);
+                        Assertions.assertEquals(readExpected, deserializerOf(type).isCallerBased(), "read " + where);
+                    }
+                    return null;
+                });
+            }
+        }
+    }
+
+    /** ... and the arm that is measured against the other reads and writes exactly the same thing. */
+    @Test
+    public void theCallerModeChangesNothingObservable() {
+        for (GlobFlavour flavour : GlobFlavour.values()) {
+            final PerfTypeFamily off = CallerMode.OFF.build(() -> PerfTypeFamily.create(flavour));
+            final List<List<String>> expected = new ArrayList<>();
+            for (int shape = 0; shape < off.types.length; shape++) {
+                expected.add(PerfTypeFamily.describe(off.read(shape)));
+            }
+
+            final PerfTypeFamily on = CallerMode.ON.build(() -> PerfTypeFamily.create(flavour));
+            for (int shape = 0; shape < off.types.length; shape++) {
+                Assertions.assertArrayEquals(off.encoded[shape], on.encoded[shape],
+                        flavour + " wrote different bytes through the caller, shape " + shape);
+                Assertions.assertEquals(expected.get(shape), PerfTypeFamily.describe(on.read(shape)),
+                        flavour + " read different values through the caller, shape " + shape);
+            }
+        }
+    }
+
     private ProtoBufGlobSerializerImpl serializerOf(GlobType type) {
         return (ProtoBufGlobSerializerImpl) new GlobSerializerRegistry(new HashMap<>()).getGlobSerializer(type);
+    }
+
+    private ProtoBufGlobDeserializerImpl deserializerOf(GlobType type) {
+        return (ProtoBufGlobDeserializerImpl)
+                new GlobDeserializerRegistry(GlobType::instantiate, new HashMap<>()).getDeserializer(type);
     }
 
     @Test
