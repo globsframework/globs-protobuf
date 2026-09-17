@@ -155,10 +155,18 @@ against the improvement: generation alone made this writer **half as fast as cor
 accessor class per field is more receivers at the same megamorphic site. So the caller buys back that penalty and
 then some.
 
+**That pair is no longer reproducible and is kept for the record.** On a generated flavour the writer's caller
+comes from the type's own factory, so `CallerMode` OFF does not remove it any more and there is no 104k arm to
+measure — `write` OBJECT is 253.7k ± 2.9k OFF against 262.5k ± 1.2k ON, i.e. the same caller twice. The
+penalty it describes is still there and still visible, just on the read side: with nothing installed,
+`read` is 231.8k on DEFAULT against 129.5k on OBJECT, and `readAllFields` 2.58M against 0.47M — **five times**
+for the widest walk.
+
 That DEFAULT row is *the type factory's* caller, which DefaultGlob has none of; the service of
 `-Dglobs.caller.fromGlob` gives it one, and it is worth as much there — `GeneratedGlobPerfTest.write` DEFAULT,
-`caller` OFF → ON, one fork: **186.7k → 254.1k ops/s, +36 %**, which puts plain DefaultGlob *ahead* of the
-generated flavours (236k / 238k, both unmoved by the param, having their caller already). Not the paradox it
+`caller` OFF → ON: **197.1k ± 15.7k → 268.8k ± 2.2k ops/s, +36 %** (JDK 24.0.1, `-f 2`; the same +36 % came
+out of an earlier single-fork run at 186.7k → 254.1k), which puts plain DefaultGlob *ahead* of the
+generated flavours (262.5k / 245.4k, both unmoved by the param, having their caller already). Not the paradox it
 looks like: the accessor of a generated Glob is one class per field, and four types' worth of them at one call
 site is what the caller cannot fold away.
 
@@ -223,8 +231,17 @@ tells one type's deserializers from another's. On the from-Glob side `"grpc.writ
 adding the type. Build it from something constant in the source — a name that varies per run is accepted and
 silently gives up the identity it asked for.
 
-**Measured, `GeneratedGlobPerfTest.read` OBJECT, five forks per arm, same build: 123.9k → 187.0k ops/s,
-+51 %.** That is the caller alone, the leaves being records already; and it is why they are records — the
+**Measured, `GeneratedGlobPerfTest.read` OBJECT, caller off → on: 129.5k ± 5.8k → 199.7k ± 8.1k ops/s,
++54 %** (JDK 24.0.1, `-f 2`), and **+60 %** on PRIMITIVE, 130.7k → 209.9k. An earlier five-fork run, on the
+erased shape, read 123.9k → 187.0k, +51 %.
+
+DEFAULT takes a caller too — the to-Glob side reads no Glob layout, so the service serves every flavour — and
+it **loses 4 %** by it, 231.8k → 222.7k. That is the same wash globs-bin-serialisation measures on its own
+DEFAULT read, and for the same reason: with every type landing on `DefaultGlob64`/`128` there is no
+polymorphic `set` call site for the per-type caller to split, and the emitted switch is left racing an array
+index that predicts perfectly.
+
+That +54 % is the caller alone, the leaves being records already; and it is why they are records — the
 previous commit measured that conversion at exactly nothing (132.6k → 130.1k) while the dispatch went through
 `attributes[tag]`, with no constant receiver to fold. Same trade as everywhere: the fallback path pays a
 little, the array arm dropping ~5 % (130.1k → 123.9k) for the extra super-interface on the leaves and one
