@@ -7,7 +7,6 @@ import org.globsframework.grpc.writer.BinaryWriter;
 import org.globsframework.grpc.writer.ProtoBufFieldSerializer;
 
 import java.io.IOException;
-import java.io.UncheckedIOException;
 
 public record ProtoBufSInt32ArraySerializerImpl(int fieldNumber, GlobGetIntArrayAccessor getValueAccessor) implements ProtoBufFieldSerializer {
 
@@ -22,15 +21,11 @@ public record ProtoBufSInt32ArraySerializerImpl(int fieldNumber, GlobGetIntArray
         }
     }
 
-    public void call(boolean isSet, boolean isNull, Object rawValue, BinaryWriter binaryWriter, Void ignored) {
+    public void call(boolean isSet, boolean isNull, Object rawValue, BinaryWriter binaryWriter) throws IOException {
         if (isNull) {
             return;
         }
         final int[] value = (int[]) rawValue;
-        try {
-            binaryWriter.writeSInt32List(fieldNumber, value, true);
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
+        binaryWriter.writeSInt32List(fieldNumber, value, true);
     }
 }

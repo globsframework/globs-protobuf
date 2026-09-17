@@ -8,7 +8,6 @@ import org.globsframework.grpc.writer.ProtoBufFieldSerializer;
 import org.globsframework.grpc.writer.ProtoBufGlobSerializer;
 
 import java.io.IOException;
-import java.io.UncheckedIOException;
 
 public record ProtoBufGlobFieldGlobSerializer(int grpcNumber, ProtoBufGlobSerializer globSerializer, GlobGetGlobAccessor getValueAccessor) implements ProtoBufFieldSerializer {
 
@@ -25,15 +24,11 @@ public record ProtoBufGlobFieldGlobSerializer(int grpcNumber, ProtoBufGlobSerial
         }
     }
 
-    public void call(boolean isSet, boolean isNull, Object rawValue, BinaryWriter writer, Void ignored) {
+    public void call(boolean isSet, boolean isNull, Object rawValue, BinaryWriter writer) throws IOException {
         if (isNull) {
             return;
         }
         final Glob value = (Glob) rawValue;
-        try {
-            writer.writeMessage(grpcNumber, value, globSerializer);
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
+        writer.writeMessage(grpcNumber, value, globSerializer);
     }
 }

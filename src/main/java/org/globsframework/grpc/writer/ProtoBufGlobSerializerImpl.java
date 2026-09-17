@@ -3,21 +3,21 @@ package org.globsframework.grpc.writer;
 import org.globsframework.core.metamodel.GlobType;
 import org.globsframework.core.metamodel.fields.Field;
 import org.globsframework.core.model.Glob;
-import org.globsframework.core.model.caller.FromGlobFunction;
 import org.globsframework.core.model.caller.FromGlobCallerFactory;
-import org.globsframework.core.model.caller.FromGlobCaller;
 
 import java.io.IOException;
-import java.io.UncheckedIOException;
 
 public final class ProtoBufGlobSerializerImpl implements ProtoBufGlobSerializer {
     private final GlobType type;
+    /** what a generated caller is emitted over : both of these are ours, so nothing is adapted */
+    private static final Class<?>[] ARGUMENTS = {BinaryWriter.class};
+
     private final ProtoBufFieldSerializer[] attributes;
 
     // Set by initCaller once the array is filled -- it cannot be built in the constructor, since the registry
     // publishes this instance before resolving the fields so that recursive types terminate. The class is what
     // the dispatch below tests, and it stays null when the type's factory generates nothing.
-    private FromGlobCaller<BinaryWriter, Void> caller;
+    private ProtoBufGlobSerializer caller;
     private Class<?> generatedGlobClass;
 
     public ProtoBufGlobSerializerImpl(GlobType type, ProtoBufFieldSerializer[] fieldSerializer) {
@@ -35,23 +35,24 @@ public final class ProtoBufGlobSerializerImpl implements ProtoBufGlobSerializer 
      * of {@code -Dglobs.caller.fromGlob} when they are core's DefaultGlob.
      * <p>
      * generatedCallerFor, not callerFor : null means "nobody can generate this", and the loop below is a
-     * better answer than the LoopFromGlobCaller callerFor would hand back — it reads through the typed
+     * better answer than the looped caller callerFor would hand back — it reads through the typed
      * accessor each leaf holds rather than Glob.getValue, and SkipFieldSerializer makes the fields that are
-     * not protobuf fields free, where the caller would call them.
+     * not protobuf fields free, where the caller would call them. Since the shape became ours, that fallback
+     * is a reflective Proxy on top, which only widens the gap.
+     * <p>
+     * The two interfaces it is emitted over are {@link ProtoBufGlobSerializer} — whose {@code write} is
+     * already {@code (Glob, BinaryWriter)}, the shape core asks for — and {@link ProtoBufFieldSerializer}.
+     * Both ours, so the emitted class <em>is</em> a serializer of this type and hands each leaf the writer as
+     * itself, IOException included.
      * <p>
      * Must be called after the array is filled, and before the serializer is used.
      */
     void initCaller(GlobType type) {
         // the name is the identity of the emitted class : the purpose only, since generatedCallerFor adds
         // the type it is generating over
-        FromGlobCaller<BinaryWriter, Void> generated = FromGlobCallerFactory.generatedCallerFor(
-                "grpc.write", type,
-                new FromGlobCallerFactory.Functions<BinaryWriter, Void>() {
-                    @SuppressWarnings("unchecked")
-                    public <T> FromGlobFunction<T, BinaryWriter, Void> forField(Field field) {
-                        return (FromGlobFunction<T, BinaryWriter, Void>) attributes[field.getIndex()];
-                    }
-                });
+        ProtoBufGlobSerializer generated = FromGlobCallerFactory.generatedCallerFor("grpc.write", type,
+                field -> attributes[field.getIndex()], null, ProtoBufGlobSerializer.class,
+                ProtoBufFieldSerializer.class, ARGUMENTS);
         if (generated != null) {
             caller = generated;
             // A generated caller reads the fields of one Glob class directly -- the generated one, or the
@@ -75,12 +76,7 @@ public final class ProtoBufGlobSerializerImpl implements ProtoBufGlobSerializer 
             throw new RuntimeException(getMessage(data));
         }
         if (data.getClass() == generatedGlobClass) {
-            try {
-                caller.call(data, writer, null);
-            } catch (UncheckedIOException e) {
-                // the leaves cannot declare IOException through FromGlobFunction, see ProtoBufFieldSerializer
-                throw e.getCause();
-            }
+            caller.write(data, writer);
         } else {
             for (ProtoBufFieldSerializer attribute : attributes) {
                 attribute.write(data, writer);

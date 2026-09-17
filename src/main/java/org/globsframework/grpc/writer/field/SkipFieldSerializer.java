@@ -17,6 +17,6 @@ public final class SkipFieldSerializer implements ProtoBufFieldSerializer {
     public void write(Glob data, BinaryWriter writer) {
     }
 
-    public void call(boolean isSet, boolean isNull, Object value, BinaryWriter writer, Void ignored) {
+    public void call(boolean isSet, boolean isNull, Object value, BinaryWriter writer) {
     }
 }

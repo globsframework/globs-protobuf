@@ -116,13 +116,15 @@ Both registries are `synchronized` and build in two phases (put the composite in
 self-recursive types (`EchoRequest children = 12`) terminate.
 
 The leaves implement `ProtoBufFieldSerializer`, not just `ProtoBufGlobSerializer`: on top of `write(Glob, BinaryWriter)`
-they carry core's `FromGlobFunction`, i.e. `call(isSet, isNull, value, writer, null)` — the same encoding, handed
+they carry a second entry point of their own, `call(isSet, isNull, value, writer)` — the same encoding, handed
 the value instead of fetching it through the accessor. `isSet` is ignored: protobuf cannot say "explicitly null", so
-a null value is simply not written (unlike globs-bin-serialisation, whose format has a NULL tag). Since
-`FromGlobFunction` declares no checked exception, each `call` wraps `IOException` in `UncheckedIOException` and
-`ProtoBufGlobSerializerImpl.write` unwraps it.
+a null value is simply not written (unlike globs-bin-serialisation, whose format has a NULL tag). Both
+methods declare `IOException` and the caller is generated over these two interfaces of ours, so it travels :
+`call` used to come from core's `FromGlobFunction`, which declared none and whose two contexts were `Object`,
+so every leaf wrapped its IOException into an `UncheckedIOException` that `ProtoBufGlobSerializerImpl.write`
+unwrapped. That is gone on both sides now, writer and reader.
 
-**Both methods are written out in each leaf, and `ProtoBufFieldSerializer` is deliberately empty.** Factoring the
+**Both methods are written out in each leaf, and `ProtoBufFieldSerializer` adds only `call`.** Factoring the
 encoding into a third method the two would call removes no copy — `write` needs the accessor and a null test on the
 value it just read, `call` needs neither — and putting the shared step on the *interface* (a `default call`
 delegating to a `writeValue`) costs a second interface dispatch on the very path that exists to remove dispatches:
@@ -132,11 +134,11 @@ globs-bin-serialisation use; on an interface it is not.
 
 `ProtoBufGlobSerializerImpl.initCaller(type)` — called at the end of `GlobSerializerRegistry.create`, not from the
 constructor, because the registry publishes the composite before resolving the fields — asks **core**
-(`FromGlobCallerFactory.generatedCallerFor("grpc.write", type, …)`) for a `FromGlobCaller` over those leaves, rather than testing
+(`FromGlobCallerFactory.generatedCallerFor("grpc.write", type, …)`) for a `ProtoBufGlobSerializer` over those leaves, rather than testing
 `CallerGlobFactory` itself. That is what makes both ways of getting one reach this module: the type's own factory
 under `-Dglobs.builder`, and the `FromGlobCallerService` of `-Dglobs.caller.fromGlob` for the Globs core builds
 (`theCallerServiceReachesTheWriterForANonGeneratedType`). `generatedCallerFor` and not `callerFor` : null means
-"nobody can generate this", and the loop is a better answer than the `LoopFromGlobCaller` `callerFor` would hand
+"nobody can generate this", and the loop is a better answer than the looped caller `callerFor` would hand
 back, being 10-20 % ahead of it. With `globs-generate` installed
 that caller is a generated class holding each leaf in a `static final` field, so the per-field call site is
 monomorphic instead of seeing every leaf class in the process. Nothing is asked of a type whose factory generates
