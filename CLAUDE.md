@@ -172,36 +172,43 @@ nowhere — 222k / 209k / 168k against 229k / 209k / 184k — so it was deleted 
 maintain, along with the `SerializerRegistry` interface that only existed to hold the two. The reader has no
 equivalent question: it dispatches on the wire tag, not on the Glob.
 
-**The writer was tried on `ToGlobCallerAll` and it loses — do not retry it.** The unrolled write-side
+**The writer was tried on the unrolled to-Glob caller and it loses — do not retry it.** The unrolled write-side
 caller is the arm that wins every comparison in globs-generate's `ToGlobCallerPerf`, but those comparisons are
 against the *write* side's own loop; here the incumbent is the **read** side's caller, which is a better
 instrument for serializing: it reads the values straight out of the generated Glob's fields and hands them to
-the leaf, where `ToGlobCallerAll` has each leaf fetch through its accessor. Prototyped (each leaf's
+the leaf, where the unrolled to-Glob caller has each leaf fetch through its accessor. Prototyped (each leaf's
 `call(MutableGlob, BinaryWriter, …)` delegating to its `write`, the composite building the caller from the
 array): **235.7k → 213.3k ops/s on `write` OBJECT, −9.5 %**, five forks each, same build, bytes identical.
 
-There is a type-level objection on top of the measurement: `ToGlobFunction.call` takes a `MutableGlob`
-because the to-Glob side of the SPI is meant for a *parser*, and a serializer only has a `Glob` — adopting it
+There is a type-level objection on top of the measurement: a to-Glob function takes a `MutableGlob`
+because that side of the SPI is meant for a *parser*, and a serializer only has a `Glob` — adopting it
 means a `checkcast` on the hot path that any read-only Glob implementation would fail.
 
 ### The reader has a caller too, and it is the *write* half of the SPI
 
-A parser filling a `MutableGlob` is what `model/caller` describes, so the read loop maps onto
-`ToGlobCaller` one piece at a time — and it barely needed adapting:
+A parser filling a `MutableGlob` is what `model/caller` describes, so the read loop maps onto its
+dispatching shape one piece at a time — and it needed no adapting at all:
 
 | the SPI wants | here |
 | --- | --- |
 | `KeySource.nextKey()` | `SafeHeapReader.getFieldNumber()`, which already decodes the tag and already answers `Integer.MAX_VALUE` at the end of a message. `nextKey` is that, with the checked exception wrapped |
-| the key of each `ToGlobFunction` | the proto field number, i.e. the index of `ProtoBufGlobDeserializerImpl`'s array |
+| the key of each function | the proto field number, i.e. the index of `ProtoBufGlobDeserializerImpl`'s array |
 | the fallback | `SkipFieldDeserializer`, which skips — what the array path does for a null entry |
 | `endLoop` | `Integer.MAX_VALUE` |
 
-`ProtoBufFieldDeserializer` is the leaf interface that carries it (`ProtoBufGlobDeserializer` +
-`ToGlobFunction<SafeHeapReader, Void, Void>`), exactly as `ProtoBufFieldSerializer` carries
-`FromGlobFunction` on the writer side, and each leaf writes its own one-line `call` delegating to its `read`
-— statically bound on a final class, where a `default` on the interface would be the second interface dispatch
-this exists to remove. `read` declares `IOException` and `ToGlobFunction` declares nothing, so `call`
-wraps and `ProtoBufGlobDeserializerImpl.read` unwraps. `initCaller(type)` runs at the end of
+**Nothing is adapted, and that is the point.** The caller is generated over two interfaces of ours —
+`ProtoBufGlobDeserializer`, which the emitted class implements, and `ProtoBufFieldDeserializer`, which it
+calls — and the two carry the *same* method, `read(MutableGlob, SafeHeapReader) throws IOException`. So the
+generated class *is* a deserializer of that type, and the switch calls each leaf's own `read`, with its own
+descriptor and its own exception. `ProtoBufFieldDeserializer` adds nothing to `ProtoBufGlobDeserializer` any
+more : it only says which of the two roles an implementation plays.
+
+It used to add a second method, `call`, inherited from core's `ToGlobFunction` — the caller was generated
+over three `Object` contexts, two of them always null here — so every leaf needed a one-liner wrapping its
+`read` into an `UncheckedIOException` that `ProtoBufGlobDeserializerImpl.read` unwrapped. That is all gone;
+the reason the one-liner could not be a `default` on the interface (a second interface dispatch on the path
+that exists to remove one, measured at 229k → 191k ops/s) is why it is worth nothing having to write it at
+all. `initCaller(type)` runs at the end of
 `GlobDeserializerRegistry.create`, after the array is filled — the registry publishes the composite before
 resolving the fields, for recursive types.
 

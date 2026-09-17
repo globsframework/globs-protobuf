@@ -100,7 +100,7 @@ and the caller holds each leaf in a `static final`, so the field number becomes 
 the whole tag computation folds. Keep them records, and do not put the shared encoding on a `default` method
 of the leaf interface — measured at 229k → 191k, it adds back the interface dispatch the design removes.
 
-`CLAUDE.md` records the strategies that were tried and dropped (a visitor-based writer, `ToGlobCallerAll` on
+`CLAUDE.md` records the strategies that were tried and dropped (a visitor-based writer, the unrolled to-Glob caller on
 the write side) so they are not tried again.
 
 ## Building

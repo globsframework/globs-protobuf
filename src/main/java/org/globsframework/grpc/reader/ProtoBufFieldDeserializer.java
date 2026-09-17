@@ -1,23 +1,20 @@
 package org.globsframework.grpc.reader;
 
-import org.globsframework.core.model.caller.ToGlobFunction;
-
 /**
  * A per-field deserializer, i.e. one entry of the array {@link ProtoBufGlobDeserializerImpl} holds — as
  * opposed to the per-type composites, which are only {@link ProtoBufGlobDeserializer}s. The mirror of
  * {@link org.globsframework.grpc.writer.ProtoBufFieldSerializer}.
  * <p>
- * It can be driven two ways, and they must read the same thing. {@link #read} is called from the array,
- * indexed by the field number the tag carries; {@code call}, inherited from {@link ToGlobFunction}, is
- * what a {@code ToGlobCaller} drives — one call site per field number rather than one for the whole
- * loop, with a constant receiver, which is what makes the leaves being records worth something.
+ * It adds nothing to {@link ProtoBufGlobDeserializer} : what it says is <em>which</em> of the two roles an
+ * implementation plays, and that is what the generated caller is built over — the emitted class implements
+ * {@link ProtoBufGlobDeserializer} and calls these, both of them ours, so the leaf's own
+ * {@code read(MutableGlob, SafeHeapReader) throws IOException} is what the switch calls, with its own
+ * descriptor and its own exception.
  * <p>
- * Each leaf writes {@code call} out as a one-liner over its own {@code read} rather than inheriting a default
- * here : on the exact final class that call is statically bound and free, where a default on the interface
- * would be a second interface dispatch on the path that exists to remove one (measured on the writer side,
- * 229k → 191k ops/s). {@code read} declares IOException and {@link ToGlobFunction} declares nothing, so
- * each {@code call} wraps it in UncheckedIOException and {@link ProtoBufGlobDeserializerImpl#read} unwraps it.
+ * It used to carry a second method as well, {@code call}, inherited from core's {@code ToGlobFunction} : the
+ * caller was generated over three {@code Object} contexts, two of which were always null here, so every leaf
+ * needed a one-liner wrapping its {@code read} and turning the IOException into an UncheckedIOException that
+ * {@link ProtoBufGlobDeserializerImpl#read} unwrapped. None of that is left.
  */
-public interface ProtoBufFieldDeserializer extends ProtoBufGlobDeserializer,
-        ToGlobFunction<SafeHeapReader, Void, Void> {
+public interface ProtoBufFieldDeserializer extends ProtoBufGlobDeserializer {
 }

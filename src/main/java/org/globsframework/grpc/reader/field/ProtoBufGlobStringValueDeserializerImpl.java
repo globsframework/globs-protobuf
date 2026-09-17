@@ -7,7 +7,6 @@ import org.globsframework.grpc.reader.ProtoBufFieldDeserializer;
 import org.globsframework.grpc.reader.SafeHeapReader;
 
 import java.io.IOException;
-import java.io.UncheckedIOException;
 
 public record ProtoBufGlobStringValueDeserializerImpl(GlobSetStringAccessor setAccessor) implements ProtoBufFieldDeserializer {
 
@@ -28,15 +27,6 @@ public record ProtoBufGlobStringValueDeserializerImpl(GlobSetStringAccessor setA
             }
             setAccessor.set(mutableGlob, value);
             reader.endValueHeader(previousLimit);
-        }
-    }
-
-    /** The same read, driven by a ToGlobCaller : one call site per field number. */
-    public void call(MutableGlob mutableGlob, SafeHeapReader reader, Void ignored, Void alsoIgnored) {
-        try {
-            read(mutableGlob, reader);
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
         }
     }
 }
