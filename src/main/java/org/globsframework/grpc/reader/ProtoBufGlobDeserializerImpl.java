@@ -1,89 +1,22 @@
 package org.globsframework.grpc.reader;
 
-import org.globsframework.core.metamodel.GlobType;
 import org.globsframework.core.model.MutableGlob;
-import org.globsframework.core.model.caller.ToGlobCallerFactory;
-import org.globsframework.grpc.reader.field.SkipFieldDeserializer;
 
 import java.io.IOException;
-import java.util.SortedMap;
-import java.util.TreeMap;
 
 public final class ProtoBufGlobDeserializerImpl implements ProtoBufGlobDeserializer {
-    /** what a generated caller is emitted over : both of these are ours, so nothing is adapted */
-    private static final Class<?>[] ARGUMENTS = {MutableGlob.class, SafeHeapReader.class};
 
-    /** indexed by proto field number, holes and unknown numbers being skipped */
+    /**
+     * indexed by proto field number, holes and unknown numbers being skipped
+     */
     private final ProtoBufFieldDeserializer[] attributes;
-
-    // Set by initCaller once the array is filled -- it cannot be built in the constructor, since the registry
-    // publishes this instance before resolving the fields so that recursive types terminate. Null when nothing
-    // can generate one, and then the loop below is the only path.
-    private ProtoBufGlobDeserializer caller;
 
     public ProtoBufGlobDeserializerImpl(ProtoBufFieldDeserializer[] fieldDeserializer) {
         attributes = fieldDeserializer;
     }
 
-    /**
-     * Asks core for a caller over these deserializers : a generated one holds each leaf in a static final
-     * field and dispatches through a switch on the field number, so reading a field is a monomorphic call
-     * instead of the megamorphic one the array lookup makes over every leaf class in the process. It is also
-     * what makes the leaves being records worth something — a constant receiver is what lets their accessor
-     * fold.
-     * <p>
-     * The two interfaces it is emitted over are {@link ProtoBufGlobDeserializer} and
-     * {@link ProtoBufFieldDeserializer}, ours both, so the emitted class <em>is</em> a deserializer of this
-     * type and calls each leaf's own {@code read} — its descriptor, its IOException, no wrapper. The reader
-     * is also the {@code KeySource} the loop asks for the next field number, which is why it is simply one of
-     * the two arguments.
-     * <p>
-     * generated, not get : null means "nobody can generate this", and the array below is a better answer
-     * than the looped LoopToGlobCallerFactory, an index being cheaper than its binary search for the same
-     * megamorphic call at the end. Installed with
-     * {@code -Dglobs.caller.toGlob=org.globsframework.model.generator.AsmCallerWriteGeneratorService}, which is
-     * independent of globs.builder : nothing in the emitted switch reads a Glob's layout.
-     * <p>
-     * The name is the identity of the emitted class, and it has to carry the type : a write-side caller is
-     * built from functions alone, so nothing else here tells one type's deserializers from another's.
-     * Constant for a given type, which is what makes the generated class the same one from one run to the
-     * next.
-     * <p>
-     * Must be called after the array is filled, and before the deserializers are used.
-     */
-    public void initCaller(GlobType type) {
-        ToGlobCallerFactory factory = ToGlobCallerFactory.generated();
-        if (factory == null) {
-            return;
-        }
-        SortedMap<Integer, ProtoBufFieldDeserializer> functions = new TreeMap<>();
-        for (int fieldNumber = 0; fieldNumber < attributes.length; fieldNumber++) {
-            if (attributes[fieldNumber] != null) {
-                functions.put(fieldNumber, attributes[fieldNumber]);
-            }
-        }
-        caller = factory.create("grpc.read." + type.getName(), functions, SkipFieldDeserializer.INSTANCE,
-                Integer.MAX_VALUE, ProtoBufGlobDeserializer.class, ProtoBufFieldDeserializer.class,
-                ARGUMENTS);
-    }
-
-    /**
-     * Whether this type got a caller. Nothing observable depends on it — the same bytes are read into the same
-     * Glob either way, which is exactly why a test has to be able to ask. The symmetric
-     * {@code ProtoBufGlobSerializerImpl.isCallerBased}.
-     */
-    public boolean isCallerBased() {
-        return caller != null;
-    }
-
     @Override
     public void read(MutableGlob mutableGlob, SafeHeapReader reader) throws IOException {
-        // one test per glob, not per field : with a caller the whole loop is the generated switch, without one
-        // it is the array below, which is what runs when -Dglobs.caller.toGlob is unset
-        if (caller != null) {
-            caller.read(mutableGlob, reader);
-            return;
-        }
         while (true) {
             final int tag = reader.getFieldNumber();
             if (tag == Integer.MAX_VALUE) {

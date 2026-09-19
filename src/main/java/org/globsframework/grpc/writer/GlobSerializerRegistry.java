@@ -8,11 +8,17 @@ import org.globsframework.grpc.writer.field.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 public class GlobSerializerRegistry {
     private static final Logger log = LoggerFactory.getLogger(GlobSerializerRegistry.class);
     private final Map<GlobType, ProtoBufGlobSerializer> serializers;
+    private final Set<GlobType> onGoing = new HashSet<>();
+    private final Map<GlobType, Delegate> recursives = new HashMap<>();
 
     public GlobSerializerRegistry(Map<GlobType, ProtoBufGlobSerializer> serializers) {
         this.serializers = serializers;
@@ -28,17 +34,23 @@ public class GlobSerializerRegistry {
         if (log.isDebugEnabled()) {
             log.debug("Creating serializer for {}", type.getName());
         }
-        return create(type);
-    }
 
-    private ProtoBufGlobSerializerImpl create(GlobType type) {
+        if (!onGoing.add(type)) {
+            return recursives.computeIfAbsent(type, globType -> new Delegate());
+        }
+
         final ProtoBufFieldSerializer[] attributes = new ProtoBufFieldSerializer[type.getFieldCount()];
-        final ProtoBufGlobSerializerImpl newSerializer = new ProtoBufGlobSerializerImpl(type, attributes);
-        serializers.put(type, newSerializer);
         createFieldSerializer(type, attributes);
-        // only now : the caller captures the leaves, and they are only all there at this point
-        newSerializer.initCaller(type);
-        return newSerializer;
+
+        final ProtoBufGlobSerializer value = GlobProtoBufGlobSerializerFactory.create(type, attributes);
+        serializers.put(type, value);
+
+        onGoing.remove(type);
+        final Delegate delegate = recursives.remove(type);
+        if (delegate != null) {
+            delegate.set(value);
+        }
+        return value;
     }
 
     private void createFieldSerializer(GlobType type, ProtoBufFieldSerializer[] attributes) {
@@ -202,6 +214,19 @@ public class GlobSerializerRegistry {
                 default -> throw new IllegalStateException("Unexpected value: " + field + " for " + type.getName());
             };
             i++;
+        }
+    }
+
+    static class Delegate implements ProtoBufGlobSerializer {
+        private ProtoBufGlobSerializer value;
+
+        @Override
+        public void write(Glob data, BinaryWriter writer) throws IOException {
+            value.write(data, writer);
+        }
+
+        public void set(ProtoBufGlobSerializer value) {
+            this.value = value;
         }
     }
 }

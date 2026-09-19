@@ -4,16 +4,23 @@ import org.globsframework.core.metamodel.GlobType;
 import org.globsframework.core.metamodel.fields.*;
 import org.globsframework.core.model.Glob;
 import org.globsframework.core.model.GlobInstantiator;
+import org.globsframework.core.model.MutableGlob;
 import org.globsframework.grpc.ProtobufField;
 import org.globsframework.grpc.reader.field.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 public class GlobDeserializerRegistry {
     private static final Logger log = LoggerFactory.getLogger(GlobDeserializerRegistry.class);
     private final Map<GlobType, ProtoBufGlobDeserializer> deserializers;
+    private final Set<GlobType> onGoing = new HashSet<>();
+    private final Map<GlobType, Delegate> recursives = new HashMap<>();
     private final GlobInstantiator instantiator;
 
     public GlobDeserializerRegistry(GlobInstantiator instantiator, Map<GlobType, ProtoBufGlobDeserializer> deserializers) {
@@ -31,18 +38,22 @@ public class GlobDeserializerRegistry {
         if (log.isDebugEnabled()) {
             log.debug("Creating deserializer for {}", type.getName());
         }
-        return create(type);
-    }
 
-    private ProtoBufGlobDeserializerImpl create(GlobType type) {
+        if (!onGoing.add(type)) {
+            return recursives.computeIfAbsent(type, globType -> new Delegate());
+        }
+
         ProtoBufFieldDeserializer[] attributes = new ProtoBufFieldDeserializer[computeSize(type)];
-        final ProtoBufGlobDeserializerImpl value = new ProtoBufGlobDeserializerImpl(attributes);
-        deserializers.put(type, value);
         createFieldDeserializer(type, attributes);
 
-        // only now : the caller captures the deserializers, and they are only all there at this point
-        value.initCaller(type);
+        final ProtoBufGlobDeserializer value = GlobProtoBufGlobDeserializerFactory.create(type, attributes);
+        deserializers.put(type, value);
 
+        onGoing.remove(type);
+        final Delegate delegate = recursives.remove(type);
+        if (delegate != null) {
+            delegate.set(value);
+        }
         return value;
     }
 
@@ -236,4 +247,17 @@ public class GlobDeserializerRegistry {
                                             .orElseThrow().getFullName());
     }
 
+
+    static class Delegate implements ProtoBufGlobDeserializer {
+        private ProtoBufGlobDeserializer value;
+
+        @Override
+        public void read(MutableGlob mutableGlob, SafeHeapReader reader) throws IOException {
+            value.read(mutableGlob, reader);
+        }
+
+        public void set(ProtoBufGlobDeserializer value) {
+            this.value = value;
+        }
+    }
 }

@@ -6,10 +6,11 @@ import org.globsframework.core.model.GlobFactoryService;
 import org.globsframework.core.model.caller.FromGlobCallerService;
 import org.globsframework.core.model.caller.ToGlobCallerService;
 import org.globsframework.grpc.reader.GlobDeserializerRegistry;
+import org.globsframework.grpc.reader.ProtoBufGlobDeserializer;
 import org.globsframework.grpc.reader.ProtoBufGlobDeserializerImpl;
+import org.globsframework.grpc.writer.CallerProtoBufGlobSerializer;
 import org.globsframework.grpc.writer.GlobSerializerRegistry;
 import org.globsframework.grpc.writer.ProtoBufGlobSerializer;
-import org.globsframework.grpc.writer.ProtoBufGlobSerializerImpl;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -63,11 +64,7 @@ public class GeneratedGlobSerializationTest {
         for (GlobFlavour flavour : GlobFlavour.values()) {
             final boolean expected = flavour != GlobFlavour.DEFAULT;
             for (GlobType type : PerfTypeFamily.create(flavour).types) {
-                final Map<GlobType, ProtoBufGlobSerializer> serializers = new HashMap<>();
-                final ProtoBufGlobSerializer serializer =
-                        new GlobSerializerRegistry(serializers).getGlobSerializer(type);
-                Assertions.assertEquals(expected,
-                        ((ProtoBufGlobSerializerImpl) serializer).isCallerBased(),
+                Assertions.assertEquals(expected, isCallerBased(serializerOf(type)),
                         flavour + " / " + type.getName());
             }
         }
@@ -81,12 +78,12 @@ public class GeneratedGlobSerializationTest {
     @Test
     public void theCallerServiceReachesTheWriterForANonGeneratedType() {
         GlobType type = PerfTypeFamily.create(GlobFlavour.DEFAULT).types[0];
-        Assertions.assertFalse(serializerOf(type).isCallerBased(), "the loop, until the service is installed");
+        Assertions.assertFalse(isCallerBased(serializerOf(type)), "the loop, until the service is installed");
 
         System.setProperty("globs.caller.fromGlob", "org.globsframework.model.generator.AsmCallerGeneratorService");
         FromGlobCallerService.Builder.reset();
         try {
-            Assertions.assertTrue(serializerOf(type).isCallerBased(), "generated over the DefaultGlob now");
+            Assertions.assertTrue(isCallerBased(serializerOf(type)), "generated over the DefaultGlob now");
         } finally {
             System.clearProperty("globs.caller.fromGlob");
             FromGlobCallerService.Builder.reset();
@@ -127,8 +124,8 @@ public class GeneratedGlobSerializationTest {
                 mode.build(() -> {
                     for (GlobType type : PerfTypeFamily.create(flavour).types) {
                         final String where = flavour + " / " + mode + " / " + type.getName();
-                        Assertions.assertEquals(writeExpected, serializerOf(type).isCallerBased(), "write " + where);
-                        Assertions.assertEquals(readExpected, deserializerOf(type).isCallerBased(), "read " + where);
+                        Assertions.assertEquals(writeExpected, isCallerBased(serializerOf(type)), "write " + where);
+                        Assertions.assertEquals(readExpected, isCallerBased(deserializerOf(type)), "read " + where);
                     }
                     return null;
                 });
@@ -156,13 +153,28 @@ public class GeneratedGlobSerializationTest {
         }
     }
 
-    private ProtoBufGlobSerializerImpl serializerOf(GlobType type) {
-        return (ProtoBufGlobSerializerImpl) new GlobSerializerRegistry(new HashMap<>()).getGlobSerializer(type);
+    private ProtoBufGlobSerializer serializerOf(GlobType type) {
+        return new GlobSerializerRegistry(new HashMap<>()).getGlobSerializer(type);
     }
 
-    private ProtoBufGlobDeserializerImpl deserializerOf(GlobType type) {
-        return (ProtoBufGlobDeserializerImpl)
-                new GlobDeserializerRegistry(GlobType::instantiate, new HashMap<>()).getDeserializer(type);
+    private ProtoBufGlobDeserializer deserializerOf(GlobType type) {
+        return new GlobDeserializerRegistry(GlobType::instantiate, new HashMap<>()).getDeserializer(type);
+    }
+
+    /**
+     * What replaced an {@code isCallerBased()} on the composites : which serializer the registry built is now
+     * the whole answer, the caller being the object itself rather than a field inside it. Nothing observable
+     * distinguishes the two — the same bytes either way, which is the point — so a test has to ask by class.
+     * The loop is ProtoBufGlobSerializerImpl, wrapped in {@link CallerProtoBufGlobSerializer} when a caller
+     * was generated.
+     */
+    private boolean isCallerBased(ProtoBufGlobSerializer serializer) {
+        return serializer instanceof CallerProtoBufGlobSerializer;
+    }
+
+    /** ... and on the read side the generated class <em>is</em> the deserializer, so anything but the loop. */
+    private boolean isCallerBased(ProtoBufGlobDeserializer deserializer) {
+        return !(deserializer instanceof ProtoBufGlobDeserializerImpl);
     }
 
     @Test

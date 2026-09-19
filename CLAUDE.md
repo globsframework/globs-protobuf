@@ -85,7 +85,7 @@ per-field closures, then run a plain loop per record.
 | | writer | reader |
 | --- | --- | --- |
 | per-field interface | `ProtoBufGlobSerializer.write(Glob, BinaryWriter)` | `ProtoBufGlobDeserializer.read(MutableGlob, SafeHeapReader)` |
-| per-type composite | `ProtoBufGlobSerializerImpl` | `ProtoBufGlobDeserializerImpl` |
+| per-type composite | `ProtoBufGlobSerializerImpl`, or the caller | `ProtoBufGlobDeserializerImpl`, or the caller |
 | builds the array | `GlobSerializerRegistry` | `GlobDeserializerRegistry` |
 | array indexing | **field declaration index**, iterated in order | **proto field number** (sparse, sized `max(number)+1`), dispatched from the tag |
 | ~40 leaf impls | `writer/field/ProtoBuf*SerializerImpl` | `reader/field/ProtoBufGlob*DeserializerImpl` |
@@ -112,8 +112,12 @@ changes **nothing**: 234.7k ± 3.8k against the 233-235k of the `Integer` versio
 the boxed field number being a constant `Integer` that C2 folds through anyway. It was kept because every other
 leaf takes an `int` and because it removes a null hazard, not for speed; don't expect that one back.
 
-Both registries are `synchronized` and build in two phases (put the composite in the map, *then* fill its array) so
-self-recursive types (`EchoRequest children = 12`) terminate.
+Both registries are `synchronized` and both resolve a type's fields **before** building its composite, which the
+caller needs — it captures the leaves, and they are only all there at that point. So the composite cannot be
+published early any more, and self-recursive types (`EchoRequest children = 12`) terminate on a `Delegate`
+instead: the type being resolved is in an `onGoing` set, a second ask for it hands back an empty `Delegate`, and
+the composite is set on it once it exists. One extra hop, on recursive types only. Same shape as
+globs-bin-serialisation's `DefaultGlobTypeFieldWritersFactory`.
 
 The leaves implement `ProtoBufFieldSerializer`, not just `ProtoBufGlobSerializer`: on top of `write(Glob, BinaryWriter)`
 they carry a second entry point of their own, `call(isSet, isNull, value, writer)` — the same encoding, handed
@@ -132,8 +136,8 @@ measured, **229k → 191k ops/s** for the object flavour and **209k → 176k** f
 helper inside a leaf would be free (statically bound), which is what the four Glob-valued writers of
 globs-bin-serialisation use; on an interface it is not.
 
-`ProtoBufGlobSerializerImpl.initCaller(type)` — called at the end of `GlobSerializerRegistry.create`, not from the
-constructor, because the registry publishes the composite before resolving the fields — asks **core**
+`GlobProtoBufGlobSerializerFactory.create(type, attributes)` — what `GlobSerializerRegistry` builds the composite
+with, once the array is filled — asks **core**
 (`FromGlobCallerFactory.generatedCallerFor("grpc.write", type, …)`) for a `ProtoBufGlobSerializer` over those leaves, rather than testing
 `CallerGlobFactory` itself. That is what makes both ways of getting one reach this module: the type's own factory
 under `-Dglobs.builder`, and the `FromGlobCallerService` of `-Dglobs.caller.fromGlob` for the Globs core builds
@@ -142,11 +146,16 @@ under `-Dglobs.builder`, and the `FromGlobCallerService` of `-Dglobs.caller.from
 back, being 10-20 % ahead of it. With `globs-generate` installed
 that caller is a generated class holding each leaf in a `static final` field, so the per-field call site is
 monomorphic instead of seeing every leaf class in the process. Nothing is asked of a type whose factory generates
-nothing, and the caller is guarded by `glob.getClass() == type.instantiate().getClass()`, so a Glob of the right
-type from another source — a custom `GlobInstantiator` — takes the loop rather than a `ClassCastException` inside
-the generated `call`. One reference compare per glob. Nothing observable distinguishes the two paths,
-which is why `ProtoBufGlobSerializerImpl.isCallerBased()` exists and
-`GeneratedGlobSerializationTest.theGeneratedFlavoursWriteThroughACaller` asserts it per flavour and per shape.
+nothing : the factory then hands back `ProtoBufGlobSerializerImpl`, the loop, and that is the whole answer — the
+composite *is* which path it takes, there is no caller field inside it to test. When there is a caller, the
+composite is `CallerProtoBufGlobSerializer`, which holds it beside that same loop and guards it with
+`glob.getClass() == type.instantiate().getClass()`, so a Glob of the right type from another source — a custom
+`GlobInstantiator` — takes the loop rather than a `ClassCastException` inside the generated `call`. It checks the
+type as well, the generated class being per-type only for a generated flavour (`DefaultGlob32/64/128` is shared):
+the same two compares per glob the caller field cost. Nothing observable distinguishes the two paths, which is why
+`GeneratedGlobSerializationTest` asks by class — `instanceof CallerProtoBufGlobSerializer` on the write side,
+anything but `ProtoBufGlobDeserializerImpl` on the read side — and
+`theGeneratedFlavoursWriteThroughACaller` asserts it per flavour and per shape.
 
 What it is worth, on `GeneratedGlobPerfTest.write` with four types, caller off → on: **104k → 229k ops/s** for the
 object flavour and **141k → 209k** for the primitive one, DEFAULT unchanged around 185-197k (it has no caller — that
@@ -218,15 +227,15 @@ over three `Object` contexts, two of them always null here — so every leaf nee
 `read` into an `UncheckedIOException` that `ProtoBufGlobDeserializerImpl.read` unwrapped. That is all gone;
 the reason the one-liner could not be a `default` on the interface (a second interface dispatch on the path
 that exists to remove one, measured at 229k → 191k ops/s) is why it is worth nothing having to write it at
-all. `initCaller(type)` runs at the end of
-`GlobDeserializerRegistry.create`, after the array is filled — the registry publishes the composite before
-resolving the fields, for recursive types.
+all. `GlobProtoBufGlobDeserializerFactory.create(type, attributes)` is asked for the composite once the array is
+filled, and here the generated class *is* the deserializer — nothing wraps it, there being no Glob class to
+guard on; `ProtoBufGlobDeserializerImpl`, the array loop, is what comes back when nothing can generate one.
 
 Both `create` calls take a **name** since `globs` 5.12 (`CallerName` in core) : it is what a generating
 implementation names the class it emits after, and therefore what makes that class the same one from one run
 to the next — an AOT cache matches a class on its name and its bytes, and the counter this replaced matched
 nothing. On the to-Glob side it has to carry the type (`"grpc.read." + type.getName()`), which is the only
-reason `initCaller` takes a `GlobType` at all : a write caller is built from functions alone, so nothing else
+reason the read-side factory takes a `GlobType` at all : a write caller is built from functions alone, so nothing else
 tells one type's deserializers from another's. On the from-Glob side `"grpc.write"` is enough, `generatedCallerFor`
 adding the type. Build it from something constant in the source — a name that varies per run is accepted and
 silently gives up the identity it asked for.
