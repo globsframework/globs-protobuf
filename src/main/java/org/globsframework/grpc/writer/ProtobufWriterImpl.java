@@ -38,16 +38,4 @@ public final class ProtobufWriterImpl implements ProtobufWriter {
         return new GlobWriterImpl(protoBufGlobSerializer);
     }
 
-    private final static class GlobWriterImpl implements GlobWriter {
-        private final ProtoBufGlobSerializer protoBufGlobSerializer;
-
-        public GlobWriterImpl(ProtoBufGlobSerializer protoBufGlobSerializer) {
-            this.protoBufGlobSerializer = protoBufGlobSerializer;
-        }
-
-        @Override
-        public void write(Glob data, BinaryWriter writer) throws IOException {
-            protoBufGlobSerializer.write(data, writer);
-        }
-    }
 }

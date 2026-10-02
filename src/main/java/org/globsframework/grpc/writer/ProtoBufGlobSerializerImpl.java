@@ -8,8 +8,6 @@ import java.io.IOException;
 
 public final class ProtoBufGlobSerializerImpl implements ProtoBufGlobSerializer {
     private final GlobType type;
-
-    /** indexed by field declaration index, and walked in that order */
     private final ProtoBufFieldSerializer[] attributes;
 
     public ProtoBufGlobSerializerImpl(GlobType type, ProtoBufFieldSerializer[] fieldSerializer) {

@@ -43,6 +43,10 @@ public interface ProtobufWriter {
         public ProtobufWriter build() {
             return new ProtobufWriterImpl(registry, serializers.isEmpty() ? Map.of() : new HashMap<>(serializers));
         }
+
+        public ProtobufWriter buildUseProperties() {
+            return new PropertyBasedProtobufWriterImpl(registry, serializers.isEmpty() ? Map.of() : new HashMap<>(serializers));
+        }
     }
 
     static ProtobufWriter create() {

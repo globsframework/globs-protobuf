@@ -47,6 +47,11 @@ public interface ProtobufReader {
              return new ProtobufReaderImpl(instantiator, globDeserializerRegistry,
                      deserializers.isEmpty() ? Map.of() : new HashMap<>(deserializers));
          }
+
+         public ProtobufReader buildUseProperties() {
+             return new PropertyBasedProtobufReaderImpl(instantiator, globDeserializerRegistry,
+                     deserializers.isEmpty() ? Map.of() : new HashMap<>(deserializers));
+         }
     }
 
     static ProtobufReader create(GlobInstantiator instantiator){
