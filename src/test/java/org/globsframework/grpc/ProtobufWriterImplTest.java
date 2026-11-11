@@ -171,6 +171,79 @@ public class ProtobufWriterImplTest {
         Assertions.assertEquals((1766249026440L % 1000) * 1_000_000, readData.getTimestamp().getNanos());
     }
 
+    /**
+     * Packed lists whose elements take more than one byte on the wire: the reader sizes each array from
+     * the field's byte count, which only equals the element count for one-byte varints.
+     */
+    @Test
+    void packedListsWithMultiByteElements() throws IOException {
+        final List<Integer> ints = List.of(-1, 300, Integer.MIN_VALUE, Integer.MAX_VALUE, 0, 127, 128);
+        final List<Integer> unsignedInts = List.of(-1, 300, 0, 127, 128, 1 << 28);
+        final List<Long> longs = List.of(-1L, 300L, Long.MIN_VALUE, Long.MAX_VALUE, 0L, 1L << 35);
+        final List<Double> doubles = List.of(4.2, -3.2, Double.MAX_VALUE);
+        final List<Float> floats = List.of(4.4f, -5.4f, Float.MIN_VALUE);
+        final List<Boolean> booleans = List.of(true, false, true);
+
+        final EchoRequest echoRequest = EchoRequest.newBuilder()
+                .addAllI32Values(ints)
+                .addAllSi32Values(ints)
+                .addAllUi32Values(unsignedInts)
+                .addAllFi32Values(ints)
+                .addAllSfi32Values(ints)
+                .addAllI64Values(longs)
+                .addAllSi64Values(longs)
+                .addAllUi64Values(longs)
+                .addAllFi64Values(longs)
+                .addAllSfi64Values(longs)
+                .addAllD64Values(doubles)
+                .addAllF32Values(floats)
+                .addAllBValues(booleans)
+                .build();
+
+        final Glob data = new ProtobufReaderImpl(GlobType::instantiate).read(EchoRequestType.TYPE,
+                new SafeHeapReader(ByteBuffer.wrap(echoRequest.toByteArray())));
+
+        final int[] expectedInts = ints.stream().mapToInt(Integer::intValue).toArray();
+        final long[] expectedLongs = longs.stream().mapToLong(Long::longValue).toArray();
+        Assertions.assertArrayEquals(expectedInts, data.get(EchoRequestType.i32values));
+        Assertions.assertArrayEquals(expectedInts, data.get(EchoRequestType.si32values));
+        Assertions.assertArrayEquals(unsignedInts.stream().mapToInt(Integer::intValue).toArray(),
+                data.get(EchoRequestType.ui32values));
+        Assertions.assertArrayEquals(expectedInts, data.get(EchoRequestType.fi32values));
+        Assertions.assertArrayEquals(expectedInts, data.get(EchoRequestType.sfi32values));
+        Assertions.assertArrayEquals(expectedLongs, data.get(EchoRequestType.i64values));
+        Assertions.assertArrayEquals(expectedLongs, data.get(EchoRequestType.si64values));
+        Assertions.assertArrayEquals(expectedLongs, data.get(EchoRequestType.ui64values));
+        Assertions.assertArrayEquals(expectedLongs, data.get(EchoRequestType.fi64values));
+        Assertions.assertArrayEquals(expectedLongs, data.get(EchoRequestType.sfi64values));
+        Assertions.assertArrayEquals(doubles.stream().mapToDouble(Double::doubleValue).toArray(),
+                data.get(EchoRequestType.dValues));
+        Assertions.assertArrayEquals(floats.stream().mapToDouble(Float::doubleValue).toArray(),
+                data.get(EchoRequestType.fValues));
+        Assertions.assertArrayEquals(new boolean[]{true, false, true}, data.get(EchoRequestType.bBalues));
+
+        // and back: protobuf-java reads what the Glob writes
+        final BinaryWriter writer = BinaryWriter.newHeapInstance(BufferAllocator.create());
+        ProtobufWriter.create().write(data, writer);
+        final AllocatedBuffer buffer = writer.complete();
+        final EchoRequest readBack = EchoRequest.parseFrom(
+                ByteBuffer.wrap(buffer.array(), buffer.position(), buffer.limit() - buffer.position()));
+        Assertions.assertEquals(echoRequest, readBack);
+    }
+
+    /**
+     * A packed varint field whose last byte still has the continuation bit set: the last element would
+     * end past the field, so the reader must report a truncated message rather than overflow its array.
+     */
+    @Test
+    void packedVarintListEndingInsideAnElementIsRejected() {
+        // field 7 (repeated int32 i32values), length-delimited, 2 bytes: 0x01 then 0x80, an unfinished varint
+        final byte[] bytes = {(7 << 3) | 2, 2, 0x01, (byte) 0x80, 0x01};
+        Assertions.assertThrows(IOException.class, () ->
+                new ProtobufReaderImpl(GlobType::instantiate).read(EchoRequestType.TYPE,
+                        new SafeHeapReader(ByteBuffer.wrap(bytes))));
+    }
+
     public static Glob buildGlobRequest() {
         final MutableGlob ch1 = EchoRequestType.TYPE.instantiate();
         ch1.set(EchoRequestType.i32, 10);

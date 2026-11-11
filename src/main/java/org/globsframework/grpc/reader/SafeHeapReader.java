@@ -35,6 +35,8 @@ public class SafeHeapReader implements KeySource {
     private static final int[] emptyInt = new int[0];
     private static final long[] emptyLong = new long[0];
     private static final double[] emptyDouble = new double[0];
+    private static final String[] emptyString = new String[0];
+    private static final boolean[] emptyBoolean = new boolean[0];
 
     private final byte[] buffer;
     private int pos;
@@ -45,6 +47,8 @@ public class SafeHeapReader implements KeySource {
     private int[] intBuffers = emptyInt; //new int[16];
     private long[] longBuffers = emptyLong; // new long[16];
     private double[] doubleBuffers = emptyDouble; //new double[16];
+    private String[] strings = emptyString;
+    private boolean[] booleanBuffers = emptyBoolean;
 
     public SafeHeapReader(ByteBuffer bytebuf) {
         buffer = bytebuf.array();
@@ -291,16 +295,14 @@ public class SafeHeapReader implements KeySource {
             case WIRETYPE_LENGTH_DELIMITED: {
                 final int bytes = readVarint32();
                 verifyPackedFixed64Length(bytes);
-                if (doubleBuffers.length < bytes) {
-                    doubleBuffers = new double[bytes + 16];
-                }
+                double[] doubleBuffers = new double[bytes >> 3];
                 final int fieldEndPos = pos + bytes;
                 int i = 0;
                 while (pos < fieldEndPos) {
                     doubleBuffers[i] = Double.longBitsToDouble(readLittleEndian64_NoCheck());
                     i++;
                 }
-                return Arrays.copyOf(doubleBuffers, i);
+                return doubleBuffers;
             }
             case WIRETYPE_FIXED64: {
                 int i = 0;
@@ -335,16 +337,14 @@ public class SafeHeapReader implements KeySource {
             case WIRETYPE_LENGTH_DELIMITED: {
                 final int bytes = readVarint32();
                 verifyPackedFixed32Length(bytes);
-                if (doubleBuffers.length < bytes) {
-                    doubleBuffers = new double[bytes + 16];
-                }
+                double[] doubleBuffers = new double[bytes >> 2];
                 final int fieldEndPos = pos + bytes;
                 int i = 0;
                 while (pos < fieldEndPos) {
                     doubleBuffers[i] = Float.intBitsToFloat(readLittleEndian32_NoCheck());
                     i++;
                 }
-                return Arrays.copyOf(doubleBuffers, i);
+                return doubleBuffers;
             }
             case WIRETYPE_FIXED32: {
                 int i = 0;
@@ -378,9 +378,7 @@ public class SafeHeapReader implements KeySource {
         switch (WireFormat.getTagWireType(tag)) {
             case WIRETYPE_LENGTH_DELIMITED: {
                 final int bytes = readVarint32();
-                if (longBuffers.length < bytes) {
-                    longBuffers = new long[bytes + 16];
-                }
+                long[] longBuffers = new long[countPackedVarints(bytes)];
                 final int fieldEndPos = pos + bytes;
                 int i = 0;
                 while (pos < fieldEndPos) {
@@ -388,7 +386,7 @@ public class SafeHeapReader implements KeySource {
                     i++;
                 }
                 requirePosition(fieldEndPos);
-                return Arrays.copyOf(longBuffers, i);
+                return longBuffers;
             }
             case WIRETYPE_VARINT: {
                 int i = 0;
@@ -421,10 +419,7 @@ public class SafeHeapReader implements KeySource {
         switch (WireFormat.getTagWireType(tag)) {
             case WIRETYPE_LENGTH_DELIMITED: {
                 final int bytes = readVarint32();
-                if (bytes > longBuffers.length) { // worst case
-                    longBuffers = new long[bytes];
-                }
-
+                long[] longBuffers = new long[countPackedVarints(bytes)];
                 final int fieldEndPos = pos + bytes;
                 int i = 0;
                 while (pos < fieldEndPos) {
@@ -432,7 +427,7 @@ public class SafeHeapReader implements KeySource {
                     i++;
                 }
                 requirePosition(fieldEndPos);
-                return Arrays.copyOf(longBuffers, i);
+                return longBuffers;
             }
             case WIRETYPE_VARINT: {
                 int i = 0;
@@ -465,9 +460,7 @@ public class SafeHeapReader implements KeySource {
         switch (WireFormat.getTagWireType(tag)) {
             case WIRETYPE_LENGTH_DELIMITED: {
                 final int bytes = readVarint32();
-                if (bytes > intBuffers.length) { // worst case
-                    intBuffers = new int[bytes];
-                }
+                int[] intBuffers = new int[countPackedVarints(bytes)];
                 final int fieldEndPos = pos + bytes;
                 int i = 0;
                 while (pos < fieldEndPos) {
@@ -475,7 +468,7 @@ public class SafeHeapReader implements KeySource {
                     i++;
                 }
                 requirePosition(fieldEndPos);
-                return Arrays.copyOf(intBuffers, i);
+                return intBuffers;
             }
             case WIRETYPE_VARINT: {
                 int i = 0;
@@ -508,9 +501,7 @@ public class SafeHeapReader implements KeySource {
             case WIRETYPE_LENGTH_DELIMITED: {
                 final int bytes = readVarint32();
                 verifyPackedFixed64Length(bytes);
-                if (bytes > this.longBuffers.length) {
-                    longBuffers = new long[bytes];
-                }
+                long[] longBuffers = new long[bytes >> 3];
 
                 final int fieldEndPos = pos + bytes;
                 int i = 0;
@@ -518,7 +509,7 @@ public class SafeHeapReader implements KeySource {
                     longBuffers[i] = readLittleEndian64_NoCheck();
                     i++;
                 }
-                return Arrays.copyOf(longBuffers, i);
+                return longBuffers;
             }
             case WIRETYPE_FIXED64: {
                 int i = 0;
@@ -552,17 +543,15 @@ public class SafeHeapReader implements KeySource {
         switch (WireFormat.getTagWireType(tag)) {
             case WIRETYPE_LENGTH_DELIMITED: {
                 final int bytes = readVarint32();
-                if (bytes >> 2 > intBuffers.length) {
-                    intBuffers = new int[bytes >> 2];
-                }
                 verifyPackedFixed32Length(bytes);
+                int[] intBuffers = new int[bytes >> 2];
                 final int fieldEndPos = pos + bytes;
                 int i = 0;
                 while (pos < fieldEndPos) {
                     intBuffers[i] = readLittleEndian32_NoCheck();
                     i++;
                 }
-                return Arrays.copyOf(intBuffers, i);
+                return intBuffers;
             }
             case WIRETYPE_FIXED32: {
                 int i = 0;
@@ -592,15 +581,11 @@ public class SafeHeapReader implements KeySource {
     }
 
 
-    boolean[] booleanBuffers = new boolean[16];
-
     public boolean[] readBoolList() throws IOException {
         switch (WireFormat.getTagWireType(tag)) {
             case WIRETYPE_LENGTH_DELIMITED: {
                 final int bytes = readVarint32();
-                if (bytes > booleanBuffers.length) {
-                    booleanBuffers = new boolean[bytes + 16];
-                }
+                boolean[] booleanBuffers = new boolean[countPackedVarints(bytes)];
                 final int fieldEndPos = pos + bytes;
                 int i = 0;
                 while (pos < fieldEndPos) {
@@ -608,7 +593,7 @@ public class SafeHeapReader implements KeySource {
                     i++;
                 }
                 requirePosition(fieldEndPos);
-                return Arrays.copyOf(booleanBuffers, i);
+                return booleanBuffers;
             }
             case WIRETYPE_VARINT: {
                 int i = 0;
@@ -638,17 +623,14 @@ public class SafeHeapReader implements KeySource {
         }
     }
 
-
     public String[] readStringList() throws IOException {
         return readStringListInternal(false);
     }
-
 
     public String[] readStringListRequireUtf8() throws IOException {
         return readStringListInternal(true);
     }
 
-    String[] strings = new String[16];
 
     public String[] readStringListInternal(boolean requireUtf8)
             throws IOException {
@@ -792,17 +774,15 @@ public class SafeHeapReader implements KeySource {
         switch (WireFormat.getTagWireType(tag)) {
             case WIRETYPE_LENGTH_DELIMITED: {
                 final int bytes = readVarint32();
-                if (bytes >> 2 > intBuffers.length) {
-                    intBuffers = new int[bytes >> 2];
-                }
                 verifyPackedFixed32Length(bytes);
+                int[] intBuffers = new int[bytes >> 2];
                 final int fieldEndPos = pos + bytes;
                 int i = 0;
                 while (pos < fieldEndPos) {
                     intBuffers[i] = readLittleEndian32_NoCheck();
                     i++;
                 }
-                return Arrays.copyOf(intBuffers, i);
+                return intBuffers;
             }
             case WIRETYPE_FIXED32: {
                 int i = 0;
@@ -837,9 +817,7 @@ public class SafeHeapReader implements KeySource {
             case WIRETYPE_LENGTH_DELIMITED: {
                 final int bytes = readVarint32();
                 verifyPackedFixed64Length(bytes);
-                if (bytes > this.longBuffers.length) {
-                    longBuffers = new long[bytes];
-                }
+                long[] longBuffers = new long[bytes >> 3];
 
                 final int fieldEndPos = pos + bytes;
                 int i = 0;
@@ -847,7 +825,7 @@ public class SafeHeapReader implements KeySource {
                     longBuffers[i] = readLittleEndian64_NoCheck();
                     i++;
                 }
-                return Arrays.copyOf(longBuffers, i);
+                return longBuffers;
             }
             case WIRETYPE_FIXED64: {
                 int i = 0;
@@ -880,16 +858,15 @@ public class SafeHeapReader implements KeySource {
         switch (WireFormat.getTagWireType(tag)) {
             case WIRETYPE_LENGTH_DELIMITED: {
                 final int bytes = readVarint32();
-                if (bytes > this.intBuffers.length) {
-                    intBuffers = new int[bytes];
-                }
+                int[] intBuffers = new int[countPackedVarints(bytes)];
                 final int fieldEndPos = pos + bytes;
                 int i = 0;
                 while (pos < fieldEndPos) {
                     intBuffers[i] = decodeZigZag32(readVarint32());
                     i++;
                 }
-                return Arrays.copyOf(intBuffers, i);
+                requirePosition(fieldEndPos);
+                return intBuffers;
             }
             case WIRETYPE_VARINT: {
                 int i = 0;
@@ -923,17 +900,15 @@ public class SafeHeapReader implements KeySource {
         switch (WireFormat.getTagWireType(tag)) {
             case WIRETYPE_LENGTH_DELIMITED: {
                 final int bytes = readVarint32();
-                if (bytes > this.intBuffers.length) {
-                    longBuffers = new long[bytes];
-                }
-
+                long[] longBuffers = new long[countPackedVarints(bytes)];
                 final int fieldEndPos = pos + bytes;
                 int i = 0;
                 while (pos < fieldEndPos) {
                     longBuffers[i] = decodeZigZag64(readVarint64());
                     i++;
                 }
-                return Arrays.copyOf(longBuffers, i);
+                requirePosition(fieldEndPos);
+                return longBuffers;
             }
             case WIRETYPE_VARINT: {
                 int i = 0;
@@ -1196,6 +1171,26 @@ public class SafeHeapReader implements KeySource {
         if (WireFormat.getTagWireType(tag) != requiredWireType) {
             throw InvalidProtocolBufferException.invalidWireType();
         }
+    }
+
+    /**
+     * Number of varints in the packed field of {@code bytes} bytes starting at {@code pos}: one per byte
+     * without the continuation bit. The last byte must end a varint, so every element ends inside the
+     * field and the count is exact.
+     */
+    private int countPackedVarints(int bytes) throws IOException {
+        requireBytes(bytes);
+        final int end = pos + bytes;
+        if (bytes > 0 && buffer[end - 1] < 0) {
+            throw InvalidProtocolBufferException.truncatedMessage();
+        }
+        int count = 0;
+        for (int p = pos; p < end; p++) {
+            if (buffer[p] >= 0) {
+                count++;
+            }
+        }
+        return count;
     }
 
     private void verifyPackedFixed64Length(int bytes) throws IOException {
